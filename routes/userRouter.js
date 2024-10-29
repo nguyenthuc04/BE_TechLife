@@ -26,26 +26,29 @@ router.get('/getUser/:id', async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
     }
 });
+
 router.post('/createUser', async (req, res) => {
     try {
         // Lấy thông tin users từ request body
-        const { name , email, password } = req.body;
+        const { account, password, birthday, name, following, followers, bio, posts, avatar, accountType } = req.body;
 
-        // Tạo người dùng mới
-        let image = 'https://i.pravatar.cc/300';
-        let type = 'user';
-        const users = new Users({ id, name , email, password , image,type});
+        // Kiểm tra xem tất cả các trường bắt buộc có được cung cấp không
+        if (!account || !password || !birthday || !name || !following || !followers || !bio || !posts || !avatar || !accountType) {
+            return res.status(400).json({ message: 'Vui lòng cung cấp tất cả các trường bắt buộc!' });
+        }
 
-        // Lưu sinh viên vào MongoDB
+        const users = new Users({ account, password, birthday, name, following, followers, bio, posts, avatar, accountType });
+
+        // Lưu người dùng vào MongoDB
         await users.save();
 
         // Trả về thông tin người dùng vừa tạo
         res.status(201).json(users);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi tạo sinh viên!' });
+        res.status(500).json({ message: 'Lỗi khi tạo người dùng!' });
     }
-})
+});
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
