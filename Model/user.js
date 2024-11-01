@@ -1,18 +1,19 @@
 const mongoose = require('mongoose');
 
-const UserSchema = new mongoose.Schema({
-    account: { type: String, required: true },
+const userSchema = new mongoose.Schema({
+    account: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     birthday: { type: String, required: true },
     name: { type: String, required: true },
-    avatar: { type: String, required: true },
-    following: { type: String, required: true },
-    followers: { type: String, required: true },
-    bio: { type: String, required: true },
-    posts: { type: String, required: true },
+    nickname: { type: String, required: true },
+    bio: { type: String },
+    avatar: { type: String },
     accountType: { type: String, required: true },
+    following: { type: [String], default: [] }, // Chấp nhận mảng chuỗi
+    followers: { type: [String], default: [] }, // Chấp nhận mảng chuỗi
+    posts: { type: [String], default: [] }      // Chấp nhận mảng chuỗi
 });
 
-const Users = mongoose.model('Users', UserSchema);
+const Users = mongoose.model('Users', userSchema);
 
 module.exports = Users
