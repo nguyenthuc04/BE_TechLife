@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
         // Tạo token JWT cho phiên làm việc
         const token = jwt.sign(
             {userId: user._id, account: user.account},
-            process.env.JWT_SECRET, // Secret key lưu trong biến môi trường
+            "mySuperSecretKey", // Secret key lưu trong biến môi trường
             {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
         );
 
