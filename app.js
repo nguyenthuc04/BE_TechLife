@@ -10,6 +10,9 @@ var courseRouter = require('./routes/courseRouter');
 var postRouter = require('./routes/postRouter');
 var postCommentsRouter = require('./routes/postCommentsRouter');
 var postLikesRouter = require('./routes/postLikesRouter');
+var reelRouter = require('./routes/reelRouter');
+var reelLikesRouter = require('./routes/reelLikesRouter');
+var reelCommentsRouter = require('./routes/reelCommentsRouter');
 
 
 
@@ -42,6 +45,10 @@ app.use('/', courseRouter);
 app.use('/', postRouter);
 app.use('/', postLikesRouter);
 app.use('/', postCommentsRouter);
+app.use('/', reelRouter)
+app.use('/', reelLikesRouter)
+app.use('/', reelCommentsRouter)
+
 
 
 
