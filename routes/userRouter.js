@@ -20,14 +20,21 @@ router.get('/getUser/:id', async (req, res) => {
         const userId = req.params.id;
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
+            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
         }
-        res.json(user);
+        res.json({
+            user,
+            followingCount: user.following.length,
+            followersCount: user.followers.length,
+            postsCount: user.posts.length
+        });
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
+        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
     }
 });
+
+
 router.post('/createUser', async (req, res) => {
     try {
         const {account, password, birthday, name,nickname, bio, avatar, accountType} = req.body;
@@ -75,6 +82,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({message: 'Mật khẩu không đúng!'});
         }
 
+        console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
         // Tạo token JWT cho phiên làm việc
         const token = jwt.sign(
@@ -126,6 +134,28 @@ router.put('/updateUser/:id', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
+    }
+});
+
+router.post('/checkEmail', async (req, res) => {
+    try {
+        const { account } = req.body;
+
+        // Check if email is provided
+        if (!account) {
+            return res.status(400).json({ message: 'Vui lòng cung cấp email!' });
+        }
+
+        // Find the user by email
+        const user = await Users.findOne({ account });
+        if (user) {
+            return res.status(200).json({ exists: true, message: 'Email đã tồn tại!',account });
+        } else {
+            return res.status(200).json({ exists: false, message: 'Email chưa được sử dụng!',account  });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
     }
 });
 module.exports = router;
