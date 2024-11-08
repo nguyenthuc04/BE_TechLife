@@ -110,7 +110,7 @@ router.post('/login', async (req, res) => {
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-        const { account, password, birthday, name,nickname, bio, avatar, accountType } = req.body;
+        const { account, password, birthday, name, nickname, bio, avatar, accountType } = req.body;
 
         // Find the user by ID
         const user = await Users.findById(userId);
@@ -120,7 +120,9 @@ router.put('/updateUser/:id', async (req, res) => {
 
         // Update user fields
         if (account) user.account = account;
-        if (password) user.password = await bcrypt.hash(password, 10);
+        if (password && password !== user.password) {
+            user.password = await bcrypt.hash(password, 10);
+        }
         if (birthday) user.birthday = birthday;
         if (name) user.name = name;
         if (nickname) user.nickname = nickname;
