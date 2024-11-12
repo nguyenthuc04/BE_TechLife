@@ -20,21 +20,28 @@ const authenticate = (req, res, next) => {
     });
 };
 
-router.use(authenticate);
+// router.use(authenticate); // Temporarily disable authentication middleware
 
 // Route to create a post
 router.post('/createPost', upload.single('file'), async (req, res) => {
     try {
         let fileName = req.file ? req.file.filename : '';
-        let postTextParams = req.body.post_data ? JSON.parse(req.body.post_data) : null;
+        let postTextParams;
 
-        if (!postTextParams) {
+        try {
+            postTextParams = req.body.post_data ? JSON.parse(req.body.post_data) : null;
+        } catch (error) {
             if (fileName) fs.unlinkSync(path.join('uploads/', fileName));
             return res.status(400).json({ success: false, message: 'Could not parse post data' });
         }
 
+        if (!postTextParams) {
+            if (fileName) fs.unlinkSync(path.join('uploads/', fileName));
+            return res.status(400).json({ success: false, message: 'Post data is missing' });
+        }
+
         const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-        const newPost = new Posts({
+        const newPost = new PostModel({
             ...postTextParams,
             imageUrl,
             createdAt: new Date().toISOString()
@@ -48,11 +55,57 @@ router.post('/createPost', upload.single('file'), async (req, res) => {
     }
 });
 
+// Route to update a specific post by ID
+router.put('/updatePost/:postId', upload.single('file'), async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const updatedData = req.body.post_data ? JSON.parse(req.body.post_data) : null;
+
+        if (!updatedData) {
+            return res.status(400).json({ success: false, message: 'Post data is missing' });
+        }
+
+        // Check if the post exists
+        const post = await PostModel.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
+        }
+
+        // If a new file is uploaded, delete the old one and update the image URL
+        let imageUrl = post.imageUrl;
+        if (req.file) {
+            const oldImagePath = path.join('uploads/', path.basename(post.imageUrl));
+            if (fs.existsSync(oldImagePath)) {
+                fs.unlinkSync(oldImagePath); // Delete old image
+            }
+            imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`; // New image URL
+        }
+
+        // Update post fields and save
+        post.caption = updatedData.caption || post.caption;
+        post.imageUrl = imageUrl;
+        post.likesCount = updatedData.likesCount || post.likesCount;
+        post.commentsCount = updatedData.commentsCount || post.commentsCount;
+        post.isLiked = updatedData.isLiked || post.isLiked;
+        post.isOwnPost = updatedData.isOwnPost || post.isOwnPost;
+        post.userName = updatedData.userName || post.userName;
+        post.userImageUrl = updatedData.userImageUrl || post.userImageUrl;
+
+        await post.save();
+
+        res.json({ success: true, message: 'Post updated successfully', post });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+
 // Route to get a specific post by ID
 router.get('/getPost/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
-        const post = await Posts.findById(postId);
+        const post = await PostModel.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post not found' });
         }
@@ -67,7 +120,7 @@ router.get('/getPost/:postId', async (req, res) => {
 router.delete('/deletePost/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
-        const post = await Posts.findByIdAndDelete(postId);
+        const post = await PostModel.findByIdAndDelete(postId);
 
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post not found' });
@@ -86,30 +139,11 @@ router.delete('/deletePost/:postId', async (req, res) => {
     }
 });
 
-// Route to get posts feed
-router.get('/getFeed', async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 0;
-        const limit = parseInt(req.query.limit) || 10;
-
-        const posts = await Posts.find()
-            .sort({ createdAt: -1 })
-            .skip(page * limit)
-            .limit(limit);
-
-        res.json(posts);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
-    }
-});
-
 // Route to get posts by a specific user
 router.get('/getUserPosts/:userId', async (req, res) => {
     try {
         const userId = req.params.userId;
-        const posts = await Posts.find({ user_id: userId })
-            .sort({ createdAt: -1 });
+        const posts = await PostModel.find({ userId: userId }).sort({ createdAt: -1 });
 
         res.json(posts);
     } catch (error) {
@@ -119,3 +153,4 @@ router.get('/getUserPosts/:userId', async (req, res) => {
 });
 
 module.exports = router;
+

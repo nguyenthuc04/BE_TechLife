@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
-const Posts = new mongoose.Schema({
-    postId: { type: String, required: true },
+const PostSchema = new mongoose.Schema({
     caption: { type: String, required: true },
     imageUrl: { type: String, required: true },
     createdAt: { type: String, required: true },
@@ -11,7 +10,7 @@ const Posts = new mongoose.Schema({
     userName: { type: String, required: true },
     userImageUrl: { type: String, required: true },
     isLiked: { type: Boolean, required: true },
-    isOwnPost:{type: Boolean, required: true}
+    isOwnPost: { type: Boolean, required: true }
 });
 
-module.exports =  mongoose.model('post', Posts);
+module.exports = mongoose.model('Post', PostSchema);
