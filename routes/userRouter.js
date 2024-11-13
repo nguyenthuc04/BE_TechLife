@@ -3,6 +3,13 @@ const router = express.Router();
 const Users = require('../Model/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+const StreamChat = require('stream-chat').StreamChat;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const STREAM_API_KEY = process.env.STREAM_API_KEY;
+const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
+dotenv.config();
 
 router.get('/getListUsers', async (req, res) => {
         try {
@@ -87,10 +94,16 @@ router.post('/login', async (req, res) => {
         // Tạo token JWT cho phiên làm việc
         const token = jwt.sign(
             {userId: user._id, account: user.account},
-            "mySuperSecretKey", // Secret key lưu trong biến môi trường
+            JWT_SECRET, // Secret key lưu trong biến môi trường
             {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
         );
 
+        // Khởi tạo Stream Chat client
+        const serverClient = StreamChat.getInstance(STREAM_API_KEY, STREAM_API_SECRET);
+
+        // Tạo token Stream Chat
+        const streamToken = serverClient.createToken(user._id.toString());
+        console.log("Generated Stream Token:", streamToken);
         res.json({
             message: 'Đăng nhập thành công!',
             token,
@@ -99,8 +112,10 @@ router.post('/login', async (req, res) => {
                 name: user.name,
                 account: user.account,
                 avatar: user.avatar
-            }
+            },
+            streamToken : streamToken
         });
+        console.log("id user chat = ", user._id);
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
@@ -160,4 +175,7 @@ router.post('/checkEmail', async (req, res) => {
         res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
     }
 });
+
+
+
 module.exports = router;
