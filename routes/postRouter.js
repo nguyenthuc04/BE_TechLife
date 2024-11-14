@@ -1,50 +1,44 @@
 const express = require('express');
-const multer = require('multer');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
 const Posts = require('../Model/post');
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/' }); // Sử dụng đường dẫn cố định cho hình ảnh
 
 // Middleware for authentication
-const authenticate = (req, res, next) => {
-    const token = req.headers['authorization'];
-    if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ success: false, message: 'Forbidden' });
-        req.user = user;
-        next();
-    });
-};
-
-// router.use(authenticate); // Temporarily disable authentication middleware
+// const authenticate = (req, res, next) => {
+//     const token = req.headers['authorization'];
+//     if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
+//
+//     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+//         if (err) return res.status(403).json({ success: false, message: 'Forbidden' });
+//         req.user = user;
+//         next();
+//     });
+// };
 
 // Route to create a post
-router.post('/createPost', upload.single('file'), async (req, res) => {
+router.post('/createPost', async (req, res) => {
     try {
-        let fileName = req.file ? req.file.filename : '';
         let postTextParams;
 
         try {
             postTextParams = req.body.post_data ? JSON.parse(req.body.post_data) : null;
         } catch (error) {
-            if (fileName) fs.unlinkSync(path.join('uploads/', fileName));
             return res.status(400).json({ success: false, message: 'Could not parse post data' });
         }
 
         if (!postTextParams) {
-            if (fileName) fs.unlinkSync(path.join('uploads/', fileName));
             return res.status(400).json({ success: false, message: 'Post data is missing' });
         }
 
-        const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-        const newPost = new PostModel({
+        // Get the image URL directly from the request
+        const imageUrl = postTextParams.imageUrl || '';
+
+        // Create new Post object with the provided image URL
+        const newPost = new Posts({
             ...postTextParams,
             imageUrl,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
         });
 
         await newPost.save();
@@ -56,7 +50,7 @@ router.post('/createPost', upload.single('file'), async (req, res) => {
 });
 
 // Route to update a specific post by ID
-router.put('/updatePost/:postId', upload.single('file'), async (req, res) => {
+router.put('/updatePost/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
         const updatedData = req.body.post_data ? JSON.parse(req.body.post_data) : null;
@@ -66,24 +60,14 @@ router.put('/updatePost/:postId', upload.single('file'), async (req, res) => {
         }
 
         // Check if the post exists
-        const post = await PostModel.findById(postId);
+        const post = await Posts.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post not found' });
         }
 
-        // If a new file is uploaded, delete the old one and update the image URL
-        let imageUrl = post.imageUrl;
-        if (req.file) {
-            const oldImagePath = path.join('uploads/', path.basename(post.imageUrl));
-            if (fs.existsSync(oldImagePath)) {
-                fs.unlinkSync(oldImagePath); // Delete old image
-            }
-            imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`; // New image URL
-        }
-
-        // Update post fields and save
+        // Update post fields with the new data
         post.caption = updatedData.caption || post.caption;
-        post.imageUrl = imageUrl;
+        post.imageUrl = updatedData.imageUrl || post.imageUrl;
         post.likesCount = updatedData.likesCount || post.likesCount;
         post.commentsCount = updatedData.commentsCount || post.commentsCount;
         post.isLiked = updatedData.isLiked || post.isLiked;
@@ -100,37 +84,19 @@ router.put('/updatePost/:postId', upload.single('file'), async (req, res) => {
     }
 });
 
-
-// Route to get a specific post by ID
-router.get('/getPost/:postId', async (req, res) => {
-    try {
-        const postId = req.params.postId;
-        const post = await PostModel.findById(postId);
-        if (!post) {
-            return res.status(404).json({ success: false, message: 'Post not found' });
-        }
-        res.json(post);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
-    }
-});
-
 // Route to delete a specific post by ID
 router.delete('/deletePost/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
-        const post = await PostModel.findByIdAndDelete(postId);
 
+        // Check if the post exists
+        const post = await Posts.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post not found' });
         }
 
-        // Xóa file hình ảnh khỏi hệ thống nếu tồn tại
-        const imagePath = path.join('uploads/', path.basename(post.imageUrl));
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
+        // Delete the post
+        await post.remove();
 
         res.json({ success: true, message: 'Post deleted successfully' });
     } catch (error) {
@@ -139,18 +105,4 @@ router.delete('/deletePost/:postId', async (req, res) => {
     }
 });
 
-// Route to get posts by a specific user
-router.get('/getUserPosts/:userId', async (req, res) => {
-    try {
-        const userId = req.params.userId;
-        const posts = await PostModel.find({ userId: userId }).sort({ createdAt: -1 });
-
-        res.json(posts);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
-    }
-});
-
 module.exports = router;
-
