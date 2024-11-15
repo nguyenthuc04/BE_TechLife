@@ -94,12 +94,12 @@ router.post('/login', async (req, res) => {
         // Tạo token JWT cho phiên làm việc
         const token = jwt.sign(
             {userId: user._id, account: user.account},
-            JWT_SECRET, // Secret key lưu trong biến môi trường
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key lưu trong biến môi trường
             {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
         );
 
         // Khởi tạo Stream Chat client
-        const serverClient = StreamChat.getInstance(STREAM_API_KEY, STREAM_API_SECRET);
+        const serverClient = StreamChat.getInstance("zjttkfv87qhy", "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263");
 
         // Tạo token Stream Chat
         const streamToken = serverClient.createToken(user._id.toString());
