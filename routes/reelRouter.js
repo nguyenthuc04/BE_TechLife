@@ -1,65 +1,82 @@
 const express = require('express');
-const multer = require('multer');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
-const Reels = require('../Model/reel');
+const Reels = require('../Model/reel'); // Import the Reel model
 
 const router = express.Router();
-const upload = multer({ dest: 'uploads/' }); // Directory for video uploads
 
-// Middleware for authentication
-const authenticate = (req, res, next) => {
-    const token = req.headers['authorization'];
-    if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ success: false, message: 'Forbidden' });
-        req.user = user;
-        next();
-    });
-};
-router.use(authenticate);
+// Middleware for authentication (Optional, uncomment if needed)
+// const authenticate = (req, res, next) => {
+//     const token = req.headers['authorization'];
+//     if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
+//
+//     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+//         if (err) return res.status(403).json({ success: false, message: 'Forbidden' });
+//         req.user = user;
+//         next();
+//     });
+// };
 
 // Route to create a reel
-router.post('/createReel', upload.single('file'), async (req, res) => {
+router.post('/createReel', async (req, res) => {
     try {
-        let fileName = req.file ? req.file.filename : '';
-        let reelData = req.body.reel_data ? JSON.parse(req.body.reel_data) : null;
+        let reelData;
 
-        if (!reelData) {
-            if (fileName) fs.unlinkSync(path.join('uploads/', fileName));
+        try {
+            reelData = req.body.reel_data ? JSON.parse(req.body.reel_data) : null;
+        } catch (error) {
             return res.status(400).json({ success: false, message: 'Could not parse reel data' });
         }
 
-        const videoUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
+        if (!reelData) {
+            return res.status(400).json({ success: false, message: 'Reel data is missing' });
+        }
+
+        // Get the image URL directly from the request
+        const videoUrl = reelData.videoUrl || '';
+        // Create new Reel object
         const newReel = new Reels({
             ...reelData,
             videoUrl,
             createdAt: new Date().toISOString(),
-            likesCount: 0,
-            commentsCount: 0,
-            isLiked: false,
-            isOwnPost: req.user && req.user.id === reelData.userId,
         });
 
         await newReel.save();
-        res.status(201).json(newReel);
+        res.status(201).json({ success: true, reel: newReel });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Route to get a specific reel by ID
-router.get('/getReel/:reelId', async (req, res) => {
+// Route to update a specific reel by ID
+router.put('/updateReel/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
+        const updatedData = req.body.reel_data ? JSON.parse(req.body.reel_data) : null;
+
+        if (!updatedData) {
+            return res.status(400).json({ success: false, message: 'Reel data is missing' });
+        }
+
+        // Check if the reel exists
         const reel = await Reels.findById(reelId);
         if (!reel) {
             return res.status(404).json({ success: false, message: 'Reel not found' });
         }
-        res.json(reel);
+
+        // Update reel fields with the new data
+        reel.caption = updatedData.caption || reel.caption;
+        reel.videoUrl = updatedData.videoUrl || reel.videoUrl;
+        reel.likesCount = updatedData.likesCount || reel.likesCount;
+        reel.commentsCount = updatedData.commentsCount || reel.commentsCount;
+        reel.isLiked = updatedData.isLiked || reel.isLiked;
+        reel.isOwnPost = updatedData.isOwnPost || reel.isOwnPost;
+        reel.userName = updatedData.userName || reel.userName;
+        reel.userImageUrl = updatedData.userImageUrl || reel.userImageUrl;
+
+        await reel.save();
+
+        res.json({ success: true, message: 'Reel updated successfully', reel });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
@@ -70,50 +87,17 @@ router.get('/getReel/:reelId', async (req, res) => {
 router.delete('/deleteReel/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
-        const reel = await Reels.findByIdAndDelete(reelId);
 
+        // Check if the reel exists
+        const reel = await Reels.findById(reelId);
         if (!reel) {
             return res.status(404).json({ success: false, message: 'Reel not found' });
         }
 
-        const videoPath = path.join('uploads/', path.basename(reel.videoUrl));
-        if (fs.existsSync(videoPath)) {
-            fs.unlinkSync(videoPath);
-        }
+        // Delete the reel
+        await reel.remove();
 
         res.json({ success: true, message: 'Reel deleted successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
-    }
-});
-
-// Route to get reels feed
-router.get('/getFeed', async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 0;
-        const limit = parseInt(req.query.limit) || 10;
-
-        const reels = await Reels.find()
-            .sort({ createdAt: -1 })
-            .skip(page * limit)
-            .limit(limit);
-
-        res.json(reels);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
-    }
-});
-
-// Route to get reels by a specific user
-router.get('/getUserReels/:userId', async (req, res) => {
-    try {
-        const userId = req.params.userId;
-        const reels = await Reels.find({ userId })
-            .sort({ createdAt: -1 });
-
-        res.json(reels);
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
