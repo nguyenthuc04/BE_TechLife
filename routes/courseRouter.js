@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Course = require('../Model/course');
 
 
@@ -28,13 +29,29 @@ router.get('/getCourse/:id', async (req, res) => {
     }
 });
 
+router.get('/getCoursesByUser/:idUser', async (req, res) => {
+    try {
+        const { idUser } = req.params;
+        const courses = await Course.find({ idUser });
+
+        res.json(courses);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi khi lấy danh sách khóa học!' });
+    }
+});
+
 
 router.post('/addCourse', async (req, res) => {
     try {
-        const { name, date, price, duration } = req.body;
+        const { name, date, price, duration, idUser } = req.body;
 
-        console.log(req.body);
-        const course = new Course({ name, date, price, duration });
+        // Kiểm tra nếu `idUser` không được cung cấp
+        if (!idUser) {
+            return res.status(400).json({ message: 'idUser là bắt buộc!' });
+        }
+
+        const course = new Course({ name, date, price, duration, idUser });
 
         await course.save();
 
@@ -44,6 +61,7 @@ router.post('/addCourse', async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi tạo khóa học!' });
     }
 });
+
 
 router.put('/updateCourse/:id', async (req, res) => {
     try {
@@ -72,18 +90,25 @@ router.put('/updateCourse/:id', async (req, res) => {
 router.delete('/deleteCourse/:id', async (req, res) => {
     try {
         const courseId = req.params.id;
-        const course = await Course.findById(courseId);
+
+        // Kiểm tra xem ID có phải là ObjectId hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            return res.status(400).json({ message: 'ID không hợp lệ!' });
+        }
+
+        // Xóa khóa học
+        const course = await Course.findByIdAndDelete(courseId);
         if (!course) {
             return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
         }
 
-        // Xóa khóa học
-        await course.remove();
         res.status(204).send(); // Trả về 204 No Content
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Lỗi khi xóa khóa học!' });
     }
 });
+
+module.exports = router;
 
 module.exports = router;

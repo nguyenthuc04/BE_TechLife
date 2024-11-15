@@ -3,6 +3,13 @@ const router = express.Router();
 const Users = require('../Model/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
+const StreamChat = require('stream-chat').StreamChat;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const STREAM_API_KEY = process.env.STREAM_API_KEY;
+const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
+dotenv.config();
 const mongoose = require('mongoose');
 
 router.get('/getListUsers', async (req, res) => {
@@ -21,7 +28,7 @@ router.get('/getUser/:id', async (req, res) => {
         const userId = req.params.id;
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
+            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
         }
         res.json({
             user,
@@ -31,16 +38,16 @@ router.get('/getUser/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
+        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
     }
 });
 
 
 router.post('/createUser', async (req, res) => {
     try {
-        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
+        const {account, password, birthday, name,nickname, bio, avatar, accountType} = req.body;
 
-        if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType) {
+        if (!account || !password || !birthday || !name ||!nickname || !bio || !avatar || !accountType) {
             return res.status(400).json({message: 'Vui lòng cung cấp tất cả các trường bắt buộc!'});
         }
 
@@ -88,10 +95,16 @@ router.post('/login', async (req, res) => {
         // Tạo token JWT cho phiên làm việc
         const token = jwt.sign(
             {userId: user._id, account: user.account},
-            "mySuperSecretKey", // Secret key lưu trong biến môi trường
+            JWT_SECRET, // Secret key lưu trong biến môi trường
             {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
         );
 
+        // Khởi tạo Stream Chat client
+        const serverClient = StreamChat.getInstance(STREAM_API_KEY, STREAM_API_SECRET);
+
+        // Tạo token Stream Chat
+        const streamToken = serverClient.createToken(user._id.toString());
+        console.log("Generated Stream Token:", streamToken);
         res.json({
             message: 'Đăng nhập thành công!',
             token,
@@ -100,8 +113,10 @@ router.post('/login', async (req, res) => {
                 name: user.name,
                 account: user.account,
                 avatar: user.avatar
-            }
+            },
+            streamToken : streamToken
         });
+        console.log("id user chat = ", user._id);
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
@@ -111,12 +126,12 @@ router.post('/login', async (req, res) => {
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
+        const { account, password, birthday, name, nickname, bio, avatar, accountType } = req.body;
 
         // Find the user by ID
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
+            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
         }
 
         // Update user fields
@@ -133,32 +148,32 @@ router.put('/updateUser/:id', async (req, res) => {
 
         // Save the updated user
         await user.save();
-        res.json({message: 'Người dùng đã được cập nhật thành công!', user});
+        res.json({ message: 'Người dùng đã được cập nhật thành công!', user });
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi khi cập nhật người dùng!'});
+        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
     }
 });
 
 router.post('/checkEmail', async (req, res) => {
     try {
-        const {account} = req.body;
+        const { account } = req.body;
 
         // Check if email is provided
         if (!account) {
-            return res.status(400).json({message: 'Vui lòng cung cấp email!'});
+            return res.status(400).json({ message: 'Vui lòng cung cấp email!' });
         }
 
         // Find the user by email
-        const user = await Users.findOne({account});
+        const user = await Users.findOne({ account });
         if (user) {
-            return res.status(200).json({exists: true, message: 'Email đã tồn tại!', account});
+            return res.status(200).json({ exists: true, message: 'Email đã tồn tại!',account });
         } else {
-            return res.status(200).json({exists: false, message: 'Email chưa được sử dụng!', account});
+            return res.status(200).json({ exists: false, message: 'Email chưa được sử dụng!',account  });
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi hệ thống khi kiểm tra email!'});
+        res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
     }
 });
 
@@ -256,5 +271,8 @@ router.post('/unfollow', async (req, res) => {
         res.status(500).json({message: "Lỗi hệ thống khi bỏ theo dõi người dùng", error: error.message});
     }
 });
+
+
+
 
 module.exports = router;
