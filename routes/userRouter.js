@@ -3,6 +3,7 @@ const router = express.Router();
 const Users = require('../Model/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 
 router.get('/getListUsers', async (req, res) => {
         try {
@@ -20,7 +21,7 @@ router.get('/getUser/:id', async (req, res) => {
         const userId = req.params.id;
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
         }
         res.json({
             user,
@@ -30,16 +31,16 @@ router.get('/getUser/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
+        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
     }
 });
 
 
 router.post('/createUser', async (req, res) => {
     try {
-        const {account, password, birthday, name,nickname, bio, avatar, accountType} = req.body;
+        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
 
-        if (!account || !password || !birthday || !name ||!nickname || !bio || !avatar || !accountType) {
+        if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType) {
             return res.status(400).json({message: 'Vui lòng cung cấp tất cả các trường bắt buộc!'});
         }
 
@@ -110,12 +111,12 @@ router.post('/login', async (req, res) => {
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-        const { account, password, birthday, name, nickname, bio, avatar, accountType } = req.body;
+        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
 
         // Find the user by ID
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
         }
 
         // Update user fields
@@ -132,32 +133,128 @@ router.put('/updateUser/:id', async (req, res) => {
 
         // Save the updated user
         await user.save();
-        res.json({ message: 'Người dùng đã được cập nhật thành công!', user });
+        res.json({message: 'Người dùng đã được cập nhật thành công!', user});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
+        res.status(500).json({message: 'Lỗi khi cập nhật người dùng!'});
     }
 });
 
 router.post('/checkEmail', async (req, res) => {
     try {
-        const { account } = req.body;
+        const {account} = req.body;
 
         // Check if email is provided
         if (!account) {
-            return res.status(400).json({ message: 'Vui lòng cung cấp email!' });
+            return res.status(400).json({message: 'Vui lòng cung cấp email!'});
         }
 
         // Find the user by email
-        const user = await Users.findOne({ account });
+        const user = await Users.findOne({account});
         if (user) {
-            return res.status(200).json({ exists: true, message: 'Email đã tồn tại!',account });
+            return res.status(200).json({exists: true, message: 'Email đã tồn tại!', account});
         } else {
-            return res.status(200).json({ exists: false, message: 'Email chưa được sử dụng!',account  });
+            return res.status(200).json({exists: false, message: 'Email chưa được sử dụng!', account});
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
+        res.status(500).json({message: 'Lỗi hệ thống khi kiểm tra email!'});
     }
 });
+
+// Route tìm kiếm người dùng theo tên
+router.get('/searchUser', async (req, res) => {
+    try {
+        const name = req.query.name;
+        // Thay thế các ký tự đặc biệt trong tên để tránh lỗi khi sử dụng trong biểu thức chính quy
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Tìm kiếm người dùng có tên khớp với biểu thức chính quy không phân biệt chữ hoa chữ thường
+        const users = await Users.find({name: new RegExp(escapedName, 'i')});
+        res.json(users);
+    } catch (e) {
+        console.log(e);
+        res.status(500).send(e);
+    }
+});
+
+// API Theo dõi người dùng
+router.post('/follow', async (req, res) => {
+    const {followerId, followeeId} = req.body;
+
+    // Kiểm tra xem followerId và followeeId có được cung cấp hay không
+    if (!followerId || !followeeId) {
+        return res.status(400).json({message: "followerId and followeeId are required"});
+    }
+
+    // Kiểm tra xem followerId và followeeId có phải là ObjectId hợp lệ hay không
+    if (!mongoose.Types.ObjectId.isValid(followerId) || !mongoose.Types.ObjectId.isValid(followeeId)) {
+        return res.status(400).json({message: "Invalid followerId or followeeId"});
+    }
+
+    try {
+        // Tìm người dùng theo followerId và followeeId
+        const follower = await Users.findById(followerId);
+        const followee = await Users.findById(followeeId);
+
+        // Kiểm tra xem người dùng có tồn tại hay không
+        if (!follower || !followee) {
+            return res.status(404).json({message: "Người dùng không tồn tại"});
+        }
+
+        // Kiểm tra xem người dùng đã theo dõi hay chưa
+        if (!followee.followers.includes(followerId)) {
+            // Thêm followerId vào danh sách người theo dõi của followee
+            followee.followers.push(followerId);
+            // Thêm followeeId vào danh sách người đang theo dõi của follower
+            follower.following.push(followeeId);
+            // Lưu các thay đổi vào cơ sở dữ liệu
+            await followee.save();
+            await follower.save();
+        }
+
+        res.status(200).json({
+            message: "Đã theo dõi người dùng",
+            success: true,
+            updatedUser: follower
+        });
+    } catch (error) {
+        console.error("Error in /follow route:", error);
+        res.status(500).json({message: "Lỗi hệ thống khi theo dõi người dùng", error: error.message});
+    }
+});
+
+// API Bỏ theo dõi người dùng
+router.post('/unfollow', async (req, res) => {
+    const {followerId, followeeId} = req.body;
+
+    try {
+        // Tìm người dùng theo followerId và followeeId
+        const follower = await Users.findById(followerId);
+        const followee = await Users.findById(followeeId);
+
+        // Kiểm tra xem người dùng có tồn tại hay không
+        if (!follower || !followee) {
+            return res.status(404).json({message: "Người dùng không tồn tại"});
+        }
+
+        // Loại bỏ followerId khỏi danh sách người theo dõi của followee
+        followee.followers = followee.followers.filter(id => id.toString() !== followerId);
+        // Loại bỏ followeeId khỏi danh sách người đang theo dõi của follower
+        follower.following = follower.following.filter(id => id.toString() !== followeeId);
+
+        // Cập nhật danh sách người theo dõi và người đang theo dõi trong cơ sở dữ liệu
+        await Users.findByIdAndUpdate(followeeId, {followers: followee.followers}, {new: true});
+        await Users.findByIdAndUpdate(followerId, {following: follower.following}, {new: true});
+
+        res.status(200).json({
+            message: "Đã bỏ theo dõi người dùng",
+            success: true,
+            updatedUser: follower
+        });
+    } catch (error) {
+        console.error("Error in /unfollow route:", error);
+        res.status(500).json({message: "Lỗi hệ thống khi bỏ theo dõi người dùng", error: error.message});
+    }
+});
+
 module.exports = router;
