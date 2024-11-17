@@ -66,8 +66,26 @@ router.post('/createUser', async (req, res) => {
             accountType
         });
 
+
+        const jwtToken = jwt.sign(
+            {userId: users._id, account: users.account}, // Lưu `account` vào `userId` trong payload
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key
+            { expiresIn: '1h' }  // Token có hiệu lực trong 1 giờ
+        );
+
+        const serverClient = StreamChat.getInstance("zjttkfv87qhy", "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263");
+        const streamToken1 = serverClient.createToken(users._id.toString());
+        console.log("Generated Stream Token:", streamToken1);
+
         await users.save();
-        res.status(201).json({message: 'Người dùng đã được tạo thành công!', user: users});
+
+
+        res.status(201).json({ message: 'Người dùng đã được tạo thành công!',jwtToken , user: {
+                id: users._id,
+                name: users.name,
+                account: users.account,
+                avatar: users.avatar
+            }, streamToken : streamToken1 });
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Lỗi khi tạo người dùng!'});
