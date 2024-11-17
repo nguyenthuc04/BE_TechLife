@@ -15,7 +15,7 @@ const authenticate = (req, res, next) => {
     });
 };
 
-router.use(authenticate);
+// router.use(authenticate);
 
 // Route để tạo bình luận
 router.post('/createComment', async (req, res) => {
