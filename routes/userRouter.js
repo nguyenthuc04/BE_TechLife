@@ -112,7 +112,8 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 name: user.name,
                 account: user.account,
-                avatar: user.avatar
+                avatar: user.avatar,
+                password: user.password
             },
             streamToken : streamToken
         });
@@ -122,6 +123,54 @@ router.post('/login', async (req, res) => {
         res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
     }
 });
+
+router.post('/login1', async (req, res) => {
+    try {
+        const { account, password } = req.body;
+
+        // Tìm người dùng theo tài khoản
+        const user = await Users.findOne({ account });
+        if (!user) {
+            return res.status(404).json({ message: 'Tài khoản không tồn tại!' });
+        }
+
+        // So sánh trực tiếp mật khẩu băm (client) với mật khẩu băm (server)
+        if (password !== user.password) {
+            return res.status(401).json({ message: 'Mật khẩu không đúng!' });
+        }
+
+        // Tạo JWT token
+        const token = jwt.sign(
+            {userId: user._id, account: user.account},
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key lưu trong biến môi trường
+            {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
+        );
+
+        const serverClient = StreamChat.getInstance("zjttkfv87qhy", "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263");
+
+        // Tạo token Stream Chat
+        const streamToken = serverClient.createToken(user._id.toString());
+        console.log("Generated Stream Token:", streamToken);
+        res.json({
+            message: 'Đăng nhập thành công!',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                account: user.account,
+                avatar: user.avatar,
+                password: user.password
+            },
+            streamToken : streamToken
+        });
+        console.log("id user chat = ", user._id);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi hệ thống khi đăng nhập!' });
+    }
+});
+
+
 
 router.put('/updateUser/:id', async (req, res) => {
     try {
