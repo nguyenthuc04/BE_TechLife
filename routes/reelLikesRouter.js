@@ -15,7 +15,7 @@ const authenticate = (req, res, next) => {
     });
 };
 
-router.use(authenticate);
+// router.use(authenticate);
 
 // Route để thêm lượt thích
 router.post('/addLikeReel', async (req, res) => {
