@@ -6,9 +6,9 @@ const staffSchema = new mongoose.Schema({
     phone: { type: String, required: true }, // Số điện thoại
     position: { type: String, required: true }, // Chức vụ
     department: { type: String, required: true }, // Bộ phận/phòng ban
-    hireDate: { type: Date, required: true }, // Ngày tuyển dụng
-    salary: { type: Number, required: true }, // Mức lương
-    isActive: { type: Boolean, default: true } // Trạng thái hoạt động
+    hireDate: { type: String, required: true }, // Ngày tuyển dụng
+    salary: { type: String, required: true }, // Mức lương
+    isActive: { type: String, default: true } // Trạng thái hoạt động
 });
 
 const Staff = mongoose.model('Staff', staffSchema);
