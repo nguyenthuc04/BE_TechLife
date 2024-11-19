@@ -14,6 +14,7 @@ var reelRouter = require('./routes/reelRouter');
 var reelLikesRouter = require('./routes/reelLikesRouter');
 var reelCommentsRouter = require('./routes/reelCommentsRouter');
 var staffRouter = require('./routes/staffRouter');
+const cors = require('cors');
 
 
 
@@ -43,6 +44,8 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static('uploads'));
 
+
+app.use(cors());
 app.use('/', usersRouter);
 app.use('/', courseRouter);
 app.use('/', postRouter);
