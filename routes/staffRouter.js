@@ -64,6 +64,8 @@ router.put('/updateStaff/:id', async (req, res) => {
     }
 });
 
+
+
 // Xóa nhân viên
 router.delete('/deleteStaff/:id', async (req, res) => {
     try {
