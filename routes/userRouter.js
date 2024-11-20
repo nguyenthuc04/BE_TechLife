@@ -6,9 +6,6 @@ const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const StreamChat = require('stream-chat').StreamChat;
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const STREAM_API_KEY = process.env.STREAM_API_KEY;
-const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 dotenv.config();
 const mongoose = require('mongoose');
 
@@ -22,6 +19,28 @@ router.get('/getListUsers', async (req, res) => {
         }
     }
 );
+
+router.get('/getListUsersByAccountType', async (req, res) => {
+    try {
+        // Lấy giá trị 'accountType' từ query parameters
+        const { accountType } = req.query; // Ví dụ: /getListUsers?accountType=admin
+
+        // Kiểm tra nếu có accountType được truyền vào
+        let query = {};
+        if (accountType) {
+            query.accountType = accountType; // Thêm điều kiện accountType vào query nếu có
+        }
+
+        // Truy vấn người dùng từ database với điều kiện nếu có
+        const users = await Users.find(query);  // Sử dụng query với điều kiện nếu có accountType
+        const count = await Users.countDocuments(query);
+        res.json({users, count});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi khi lấy dữ liệu người dùng!' });
+    }
+});
+
 
 router.get('/getUser/:id', async (req, res) => {
     try {
@@ -41,7 +60,6 @@ router.get('/getUser/:id', async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
     }
 });
-
 
 router.post('/createUser', async (req, res) => {
     try {
