@@ -14,6 +14,7 @@ var postLikesRouter = require('./routes/postLikesRouter');
 var reelRouter = require('./routes/reelRouter');
 var reelLikesRouter = require('./routes/reelLikesRouter');
 var reelCommentsRouter = require('./routes/reelCommentsRouter');
+var staffRouter = require('./routes/staffRouter');
 
 
 var app = express();
@@ -48,6 +49,7 @@ app.use('/', postCommentsRouter);
 app.use('/', reelRouter)
 app.use('/', reelLikesRouter)
 app.use('/', reelCommentsRouter)
+app.use('/', staffRouter)
 
 
 // catch 404 and forward to error handler
