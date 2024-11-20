@@ -66,8 +66,26 @@ router.post('/createUser', async (req, res) => {
             accountType
         });
 
+
+        const jwtToken = jwt.sign(
+            {userId: users._id, account: users.account}, // Lưu `account` vào `userId` trong payload
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key
+            { expiresIn: '1h' }  // Token có hiệu lực trong 1 giờ
+        );
+
+        const serverClient = StreamChat.getInstance("zjttkfv87qhy", "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263");
+        const streamToken1 = serverClient.createToken(users._id.toString());
+        console.log("Generated Stream Token:", streamToken1);
+
         await users.save();
-        res.status(201).json({message: 'Người dùng đã được tạo thành công!', user: users});
+
+
+        res.status(201).json({ message: 'Người dùng đã được tạo thành công!',jwtToken , user: {
+                id: users._id,
+                name: users.name,
+                account: users.account,
+                avatar: users.avatar
+            }, streamToken : streamToken1 });
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Lỗi khi tạo người dùng!'});
@@ -112,7 +130,8 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 name: user.name,
                 account: user.account,
-                avatar: user.avatar
+                avatar: user.avatar,
+                password: user.password
             },
             streamToken: streamToken
         });
@@ -122,6 +141,54 @@ router.post('/login', async (req, res) => {
         res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
     }
 });
+
+router.post('/login1', async (req, res) => {
+    try {
+        const { account, password } = req.body;
+
+        // Tìm người dùng theo tài khoản
+        const user = await Users.findOne({ account });
+        if (!user) {
+            return res.status(404).json({ message: 'Tài khoản không tồn tại!' });
+        }
+
+        // So sánh trực tiếp mật khẩu băm (client) với mật khẩu băm (server)
+        if (password !== user.password) {
+            return res.status(401).json({ message: 'Mật khẩu không đúng!' });
+        }
+
+        // Tạo JWT token
+        const token = jwt.sign(
+            {userId: user._id, account: user.account},
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key lưu trong biến môi trường
+            {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
+        );
+
+        const serverClient = StreamChat.getInstance("zjttkfv87qhy", "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263");
+
+        // Tạo token Stream Chat
+        const streamToken = serverClient.createToken(user._id.toString());
+        console.log("Generated Stream Token:", streamToken);
+        res.json({
+            message: 'Đăng nhập thành công!',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                account: user.account,
+                avatar: user.avatar,
+                password: user.password
+            },
+            streamToken : streamToken
+        });
+        console.log("id user chat = ", user._id);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi hệ thống khi đăng nhập!' });
+    }
+});
+
+
 
 router.put('/updateUser/:id', async (req, res) => {
     try {
