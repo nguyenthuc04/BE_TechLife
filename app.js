@@ -14,6 +14,8 @@ var reelRouter = require('./routes/reelRouter');
 var reelLikesRouter = require('./routes/reelLikesRouter');
 var reelCommentsRouter = require('./routes/reelCommentsRouter');
 
+const cors = require('cors');
+const bodyParser = require('body-parser');
 
 var app = express();
 const mongoose = require('mongoose');
@@ -35,6 +37,9 @@ app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(cors());
+app.use(bodyParser.json());
 
 app.use('/', usersRouter);
 app.use('/', courseRouter);

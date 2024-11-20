@@ -28,7 +28,7 @@ router.get('/getUser/:id', async (req, res) => {
         const userId = req.params.id;
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
         }
         res.json({
             user,
@@ -38,16 +38,16 @@ router.get('/getUser/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
+        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
     }
 });
 
 
 router.post('/createUser', async (req, res) => {
     try {
-        const {account, password, birthday, name,nickname, bio, avatar, accountType} = req.body;
+        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
 
-        if (!account || !password || !birthday || !name ||!nickname || !bio || !avatar || !accountType) {
+        if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType) {
             return res.status(400).json({message: 'Vui lòng cung cấp tất cả các trường bắt buộc!'});
         }
 
@@ -114,7 +114,7 @@ router.post('/login', async (req, res) => {
                 account: user.account,
                 avatar: user.avatar
             },
-            streamToken : streamToken
+            streamToken: streamToken
         });
         console.log("id user chat = ", user._id);
     } catch (error) {
@@ -126,12 +126,12 @@ router.post('/login', async (req, res) => {
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-        const { account, password, birthday, name, nickname, bio, avatar, accountType } = req.body;
+        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
 
         // Find the user by ID
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
         }
 
         // Update user fields
@@ -148,32 +148,32 @@ router.put('/updateUser/:id', async (req, res) => {
 
         // Save the updated user
         await user.save();
-        res.json({ message: 'Người dùng đã được cập nhật thành công!', user });
+        res.json({message: 'Người dùng đã được cập nhật thành công!', user});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
+        res.status(500).json({message: 'Lỗi khi cập nhật người dùng!'});
     }
 });
 
 router.post('/checkEmail', async (req, res) => {
     try {
-        const { account } = req.body;
+        const {account} = req.body;
 
         // Check if email is provided
         if (!account) {
-            return res.status(400).json({ message: 'Vui lòng cung cấp email!' });
+            return res.status(400).json({message: 'Vui lòng cung cấp email!'});
         }
 
         // Find the user by email
-        const user = await Users.findOne({ account });
+        const user = await Users.findOne({account});
         if (user) {
-            return res.status(200).json({ exists: true, message: 'Email đã tồn tại!',account });
+            return res.status(200).json({exists: true, message: 'Email đã tồn tại!', account});
         } else {
-            return res.status(200).json({ exists: false, message: 'Email chưa được sử dụng!',account  });
+            return res.status(200).json({exists: false, message: 'Email chưa được sử dụng!', account});
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
+        res.status(500).json({message: 'Lỗi hệ thống khi kiểm tra email!'});
     }
 });
 
@@ -272,7 +272,66 @@ router.post('/unfollow', async (req, res) => {
     }
 });
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
+router.get('/', async (req, res) => {
+    const { search, page = 1, limit = 10 } = req.query;
+    try {
+        const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+        const users = await Users.find(query)
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+        const total = await Users.countDocuments(query);
 
+        res.json({ users, total });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Thêm người dùng mới
+router.post('/', async (req, res) => {
+    const newUser = new Users(req.body);
+    try {
+        const savedUser = await newUser.save();
+        res.status(201).json(savedUser);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// Chỉnh sửa thông tin người dùng
+router.put('/:id', async (req, res) => {
+    try {
+        const updatedUser = await Users.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(updatedUser);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// Xóa người dùng
+router.delete('/:id', async (req, res) => {
+    try {
+        await Users.findByIdAndDelete(req.params.id);
+        res.json({ message: 'User deleted' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Thống kê
+router.get('/stats', async (req, res) => {
+    try {
+        const totalUsers = await Users.countDocuments();
+        const accountTypes = await Users.aggregate([
+            { $group: { _id: '$accountType', count: { $sum: 1 } } },
+        ]);
+        res.json({ totalUsers, accountTypes });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 
 
 module.exports = router;
