@@ -104,5 +104,40 @@ router.delete('/deletePost/:postId', async (req, res) => {
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
+// API lấy danh sách bài viết
+router.get('/api/posts', async (req, res) => {
+    try {
+        const posts = await Posts.find();
 
+        // Nếu bạn muốn xử lý thêm dữ liệu, ví dụ kiểm tra imageUrl
+        const processedPosts = posts.map(post => {
+            // Kiểm tra nếu post có imageUrl là mảng và đảm bảo nó có ảnh
+            if (Array.isArray(post.imageUrl) && post.imageUrl.length > 0) {
+                post.imageUrl = post.imageUrl.map(url => url); // Xử lý hoặc điều chỉnh mảng ảnh nếu cần
+            } else {
+                post.imageUrl = []; // Nếu không có ảnh, trả về mảng rỗng
+            }
+
+            return post;
+        });
+
+        res.status(200).json(processedPosts);
+    } catch (error) {
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách bài viết' });
+    }
+});
+
+// API xóa bài viết
+router.delete('/api/posts/:id', async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const deletedPost = await Posts.findByIdAndDelete(postId);
+        if (!deletedPost) {
+            return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+        }
+        res.status(200).json({ message: 'Xóa bài viết thành công' });
+    } catch (error) {
+        res.status(500).json({ error: 'Lỗi khi xóa bài viết' });
+    }
+});
 module.exports = router;
