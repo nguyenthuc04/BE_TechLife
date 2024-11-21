@@ -104,6 +104,7 @@ router.delete('/deletePost/:postId', async (req, res) => {
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // API lấy danh sách bài viết
 router.get('/api/posts', async (req, res) => {
     try {
@@ -140,4 +141,5 @@ router.delete('/api/posts/:id', async (req, res) => {
         res.status(500).json({ error: 'Lỗi khi xóa bài viết' });
     }
 });
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 module.exports = router;

@@ -18,6 +18,7 @@ var staffRouter = require('./routes/staffRouter');
 
 
 var app = express();
+
 const mongoose = require('mongoose');
 mongoose.connect('mongodb+srv://nguyentrungthuc555:honest2004@cluster0.qkoy9qi.mongodb.net/api?retryWrites=true&w=majority&appName=Cluster0', {});
 

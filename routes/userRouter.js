@@ -8,6 +8,7 @@ const StreamChat = require('stream-chat').StreamChat;
 
 dotenv.config();
 const mongoose = require('mongoose');
+const Staff = require("../Model/staff");
 
 router.get('/getListUsers', async (req, res) => {
         try {
@@ -359,7 +360,7 @@ router.post('/unfollow', async (req, res) => {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
-router.get('/', async (req, res) => {
+router.get('/getListUserQT', async (req, res) => {
     const { search, page = 1, limit = 10 } = req.query;
     try {
         const query = search ? { name: { $regex: search, $options: 'i' } } : {};
@@ -375,28 +376,59 @@ router.get('/', async (req, res) => {
 });
 
 // Thêm người dùng mới
-router.post('/', async (req, res) => {
-    const newUser = new Users(req.body);
+router.post('/createUserQT', async (req, res) => {
+    const { account, password, birthday, name, nickname, bio, avatar, accountType,following, followers, posts } = req.body;
+
+    if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType || !following || !followers || !posts) {
+        return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin nhân viên!' });
+    }
+
     try {
-        const savedUser = await newUser.save();
-        res.status(201).json(savedUser);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
+        const newUser = new Users({ account, password, birthday, name, nickname, bio, avatar, accountType,following, followers, posts });
+        await newUser.save();
+        res.status(201).json({ message: 'Nhân viên đã được tạo thành công!', user: newUser });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi khi tạo nhân viên!' });
     }
 });
 
-// Chỉnh sửa thông tin người dùng
-router.put('/:id', async (req, res) => {
+// Lấy thông tin user theo ID
+router.get('/getUserQT/:id', async (req, res) => {
     try {
-        const updatedUser = await Users.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        res.json(updatedUser);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
+        const user = await Users.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
+    }
+});
+
+// Cập nhật thông tin người dùng
+router.put('/updateUserQT/:id', async (req, res) => {
+    try {
+        const user = await Users.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
+        }
+
+        // Cập nhật các trường có trong body
+        Object.keys(req.body).forEach(key => {
+            if (req.body[key] != null) {
+                user[key] = req.body[key];
+            }
+        });
+
+        await user.save();
+        res.status(200).json({ message: 'Người dùng đã được cập nhật thành công!', user });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
     }
 });
 
 // Xóa người dùng
-router.delete('/:id', async (req, res) => {
+router.delete('deleteUserQT/:id', async (req, res) => {
     try {
         await Users.findByIdAndDelete(req.params.id);
         res.json({ message: 'User deleted' });
@@ -417,6 +449,6 @@ router.get('/stats', async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 });
-
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 module.exports = router;
