@@ -360,7 +360,7 @@ router.post('/unfollow', async (req, res) => {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
-router.get('/', async (req, res) => {
+router.get('/getListUserQT', async (req, res) => {
     const { search, page = 1, limit = 10 } = req.query;
     try {
         const query = search ? { name: { $regex: search, $options: 'i' } } : {};
