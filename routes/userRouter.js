@@ -360,7 +360,7 @@ router.post('/unfollow', async (req, res) => {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
-router.get('/getListUserQT', async (req, res) => {
+router.get('/', async (req, res) => {
     const { search, page = 1, limit = 10 } = req.query;
     try {
         const query = search ? { name: { $regex: search, $options: 'i' } } : {};
@@ -449,6 +449,95 @@ router.get('/stats', async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 });
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+router.post('/loginweb', async (req, res) => {
+    try {
+        const {account, password} = req.body;
+        console.log("Dữ liệu nhận được từ client:", req.body.account);
+
+        // Kiểm tra tài khoản
+        const user = await Users.findOne({account : account});
+        if (!user) {
+            return res.status(404).json({message: 'Tài khoản không tồn tại!'});
+        }
+
+        // Kiểm tra mật khẩu
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({message: 'Mật khẩu không đúng!'});
+        }
+
+        console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
+        // Tạo token JWT cho phiên làm việc
+        const token = jwt.sign(
+            {userId: user._id, account: user.account},
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key lưu trong biến môi trường
+            {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
+        );
+
+
+        res.json({
+            message: 'Đăng nhập thành công!',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                account: user.account,
+                avatar: user.avatar,
+                accountType : user.accountType
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
+    }
+});
+
+router.post('/changepassword', async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+
+        // Xác thực token và tìm người dùng
+        const token = req.cookies.token; // Hoặc token từ header Authorization
+        if (!token) {
+            return res.status(401).json({ message: 'Bạn chưa đăng nhập!' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await Users.findById(decoded.userId);
+
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy tài khoản!' });
+        }
+
+        // Xác thực mật khẩu cũ
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Mật khẩu cũ không đúng!' });
+        }
+
+        // Hash mật khẩu mới
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Cập nhật mật khẩu mới
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ message: 'Đổi mật khẩu thành công!' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi hệ thống khi đổi mật khẩu!' });
+    }
+});
+
+router.post('/logout', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    console.log(`User logged out with token: ${token}`);
+    res.status(200).json({ message: 'Logout logged!' });
+});
+
 
 module.exports = router;
