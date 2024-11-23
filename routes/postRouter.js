@@ -1,108 +1,172 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const Posts = require('../Model/post');
-
+const mongoose = require('mongoose');
 const router = express.Router();
 
-// Middleware for authentication
-// const authenticate = (req, res, next) => {
-//     const token = req.headers['authorization'];
-//     if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
-//
-//     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-//         if (err) return res.status(403).json({ success: false, message: 'Forbidden' });
-//         req.user = user;
-//         next();
-//     });
-// };
-
-// Route to create a post
-router.post('/createPost', async (req, res) => {
+router.get('/getComments/:postId', async (req, res) => {
     try {
-        let postTextParams;
+        const postId = req.params.postId;
 
-        try {
-            postTextParams = req.body.post_data ? JSON.parse(req.body.post_data) : null;
-        } catch (error) {
-            return res.status(400).json({ success: false, message: 'Could not parse post data' });
+        if (!mongoose.Types.ObjectId.isValid(postId)) {
+            return res.status(400).json({ success: false, message: 'Invalid postId' });
         }
 
-        if (!postTextParams) {
-            return res.status(400).json({ success: false, message: 'Post data is missing' });
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
         }
 
-        // Get the image URL directly from the request
-        const imageUrl = postTextParams.imageUrl || '';
-
-        // Create new Post object with the provided image URL
-        const newPost = new Posts({
-            ...postTextParams,
-            imageUrl,
-            createdAt: new Date().toISOString(),
-        });
-
-        await newPost.save();
-        res.status(201).json(newPost);
+        res.status(200).json({ success: true, comments: post.comments });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Route to update a specific post by ID
-router.put('/updatePost/:postId', async (req, res) => {
+router.post('/addComment/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
-        const updatedData = req.body.post_data ? JSON.parse(req.body.post_data) : null;
+        const { userId, userName, userImageUrl, text } = req.body;
 
-        if (!updatedData) {
-            return res.status(400).json({ success: false, message: 'Post data is missing' });
+        if (!mongoose.Types.ObjectId.isValid(postId) || !userId || !userName || !userImageUrl || !text) {
+            return res.status(400).json({ success: false, message: 'Invalid input data' });
         }
 
-        // Check if the post exists
         const post = await Posts.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post not found' });
         }
 
-        // Update post fields with the new data
-        post.caption = updatedData.caption || post.caption;
-        post.imageUrl = updatedData.imageUrl || post.imageUrl;
-        post.likesCount = updatedData.likesCount || post.likesCount;
-        post.commentsCount = updatedData.commentsCount || post.commentsCount;
-        post.isLiked = updatedData.isLiked || post.isLiked;
-        post.isOwnPost = updatedData.isOwnPost || post.isOwnPost;
-        post.userName = updatedData.userName || post.userName;
-        post.userImageUrl = updatedData.userImageUrl || post.userImageUrl;
+        const newComment = {
+            userId,
+            userName,
+            userImageUrl,
+            text,
+            createdAt: new Date()
+        };
+
+        post.comments.push(newComment);
+        post.commentsCount += 1;
 
         await post.save();
 
-        res.json({ success: true, message: 'Post updated successfully', post });
+        res.status(201).json({ success: true, message: 'Comment added successfully', post });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Route to delete a specific post by ID
-router.delete('/deletePost/:postId', async (req, res) => {
+router.get('/getPost/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
-
-        // Check if the post exists
         const post = await Posts.findById(postId);
         if (!post) {
-            return res.status(404).json({ success: false, message: 'Post not found' });
+            return res.status(404).json({success: false, message: 'Post not found'});
+        }
+        res.json(post);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+router.get('/getListPost', async (req, res) => {
+        try {
+            const posts = await Posts.find();
+            res.json(posts);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({message: 'Lỗi khi lấy dữ liệu người dùng!'});
+        }
+    }
+);
+
+router.post('/likePost/:postId', async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const userId = req.body.userId;
+
+        if (!mongoose.Types.ObjectId.isValid(postId) || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({success: false, message: 'Invalid postId or userId'});
         }
 
-        // Delete the post
-        await post.remove();
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({success: false, message: 'Post not found'});
+        }
 
-        res.json({ success: true, message: 'Post deleted successfully' });
+        const likeIndex = post.likes.indexOf(userId);
+        if (likeIndex === -1) {
+            post.likes.push(userId);
+            post.likesCount += 1;
+            message = 'Post liked successfully';
+        } else {
+            post.likes.splice(likeIndex, 1);
+            post.likesCount -= 1;
+            message = 'Post unliked successfully';
+        }
+
+        await post.save();
+
+        res.status(200).json({success: true, message, post});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+
+router.post('/createPost', async (req, res) => {
+    try {
+        const {caption, imageUrl, userId, userName, userImageUrl} = req.body;
+
+        if (!caption || !userId || !userName || !userImageUrl) {
+            return res.status(400).json({
+                success: false,
+                message: 'Caption, userId, userName, and userImageUrl are required'
+            });
+        }
+
+        const newPost = new Posts({
+            caption,
+            imageUrl: imageUrl || [],
+            createdAt: new Date().toISOString(),
+            likesCount: 0,
+            commentsCount: 0,
+            userId,
+            userName,
+            userImageUrl,
+            isLiked: false,
+            isOwnPost: true
+        });
+
+        await newPost.save();
+
+        res.status(201).json({success: true, message: 'Post created successfully', post: newPost});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+
+router.get('/getPostsByUser/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: 'Invalid userId' });
+        }
+
+        const posts = await Posts.find({ userId });
+        if (!posts.length) {
+            return res.status(404).json({ success: false, message: 'No posts found for this user' });
+        }
+
+        res.status(200).json({ success: true, posts });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
+
 
 module.exports = router;

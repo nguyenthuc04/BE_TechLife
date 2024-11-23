@@ -1,107 +1,171 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const Reels = require('../Model/reel'); // Import the Reel model
+const Reels = require('../Model/reel');
+const mongoose = require("mongoose");
 
 const router = express.Router();
 
-// Middleware for authentication (Optional, uncomment if needed)
-// const authenticate = (req, res, next) => {
-//     const token = req.headers['authorization'];
-//     if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
-//
-//     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-//         if (err) return res.status(403).json({ success: false, message: 'Forbidden' });
-//         req.user = user;
-//         next();
-//     });
-// };
-
-// Route to create a reel
-router.post('/createReel', async (req, res) => {
+router.get('/getReelComments/:reelId', async (req, res) => {
     try {
-        let reelData;
+        const reelId = req.params.reelId;
 
-        try {
-            reelData = req.body.reel_data ? JSON.parse(req.body.reel_data) : null;
-        } catch (error) {
-            return res.status(400).json({ success: false, message: 'Could not parse reel data' });
+        if (!mongoose.Types.ObjectId.isValid(reelId)) {
+            return res.status(400).json({ success: false, message: 'Invalid postId' });
         }
 
-        if (!reelData) {
-            return res.status(400).json({ success: false, message: 'Reel data is missing' });
+        const reel= await Reels.findById(reelId);
+        if (!reel) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
         }
 
-        // Get the image URL directly from the request
-        const videoUrl = reelData.videoUrl || '';
-        // Create new Reel object
-        const newReel = new Reels({
-            ...reelData,
-            videoUrl,
-            createdAt: new Date().toISOString(),
-        });
-
-        await newReel.save();
-        res.status(201).json({ success: true, reel: newReel });
+        res.status(200).json({ success: true, comments: reel.comments });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Route to update a specific reel by ID
-router.put('/updateReel/:reelId', async (req, res) => {
+router.post('/addReelComment/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
-        const updatedData = req.body.reel_data ? JSON.parse(req.body.reel_data) : null;
+        const { userId, userName, userImageUrl, text } = req.body;
 
-        if (!updatedData) {
-            return res.status(400).json({ success: false, message: 'Reel data is missing' });
+        if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !userName || !userImageUrl || !text) {
+            return res.status(400).json({ success: false, message: 'Invalid input data' });
         }
 
-        // Check if the reel exists
         const reel = await Reels.findById(reelId);
         if (!reel) {
-            return res.status(404).json({ success: false, message: 'Reel not found' });
+            return res.status(404).json({ success: false, message: 'Post not found' });
         }
 
-        // Update reel fields with the new data
-        reel.caption = updatedData.caption || reel.caption;
-        reel.videoUrl = updatedData.videoUrl || reel.videoUrl;
-        reel.likesCount = updatedData.likesCount || reel.likesCount;
-        reel.commentsCount = updatedData.commentsCount || reel.commentsCount;
-        reel.isLiked = updatedData.isLiked || reel.isLiked;
-        reel.isOwnPost = updatedData.isOwnPost || reel.isOwnPost;
-        reel.userName = updatedData.userName || reel.userName;
-        reel.userImageUrl = updatedData.userImageUrl || reel.userImageUrl;
+        const newComment = {
+            userId,
+            userName,
+            userImageUrl,
+            text,
+            createdAt: new Date()
+        };
+
+        reel.comments.push(newComment);
+        reel.commentsCount += 1;
 
         await reel.save();
 
-        res.json({ success: true, message: 'Reel updated successfully', reel });
+        res.status(201).json({ success: true, message: 'Comment added successfully', reel });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Route to delete a specific reel by ID
-router.delete('/deleteReel/:reelId', async (req, res) => {
+router.get('/getReel/:reelId', async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const post = await Reels.findById(postId);
+        if (!post) {
+            return res.status(404).json({success: false, message: 'Post not found'});
+        }
+        res.json(post);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+router.get('/getListReel', async (req, res) => {
+        try {
+            const posts = await Reels.find();
+            res.json(posts);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({message: 'Lỗi khi lấy dữ liệu người dùng!'});
+        }
+    }
+);
+
+router.post('/likeReel/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
+        const userId = req.body.userId;
 
-        // Check if the reel exists
-        const reel = await Reels.findById(reelId);
-        if (!reel) {
-            return res.status(404).json({ success: false, message: 'Reel not found' });
+        if (!mongoose.Types.ObjectId.isValid(reelId) || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({success: false, message: 'Invalid postId or userId'});
         }
 
-        // Delete the reel
-        await reel.remove();
+        const reel = await Reels.findById(reelId);
+        if (!reel) {
+            return res.status(404).json({success: false, message: 'Post not found'});
+        }
 
-        res.json({ success: true, message: 'Reel deleted successfully' });
+        const likeIndex = reel.likes.indexOf(userId);
+        if (likeIndex === -1) {
+            reel.likes.push(userId);
+            reel.likesCount += 1;
+            message = 'Post liked successfully';
+        } else {
+            reel.likes.splice(likeIndex, 1);
+            reel.likesCount -= 1;
+            message = 'Post unliked successfully';
+        }
+
+        await reel.save();
+
+        res.status(200).json({success: true, message, reel});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+
+router.post('/createReel', async (req, res) => {
+    try {
+        const {caption, videoUrl, userId, userName, userImageUrl} = req.body;
+
+        if (!caption || !userId || !userName || !userImageUrl) {
+            return res.status(400).json({
+                success: false,
+                message: 'Caption, userId, userName, and userImageUrl are required'
+            });
+        }
+
+        const newPost = new Reels({
+            caption,
+            videoUrl: videoUrl || [],
+            createdAt: new Date().toISOString(),
+            likesCount: 0,
+            commentsCount: 0,
+            userId,
+            userName,
+            userImageUrl,
+            isLiked: false,
+            isOwnPost: true
+        });
+
+        await newPost.save();
+
+        res.status(201).json({success: true, message: 'Post created successfully', post: newPost});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+router.get('/getReelsByUser/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: 'Invalid userId' });
+        }
+
+        const reels = await Reels.find({ userId });
+        if (!reels.length) {
+            return res.status(404).json({ success: false, message: 'No reels found for this user' });
+        }
+
+        res.status(200).json({ success: true, reels });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
-
 module.exports = router;

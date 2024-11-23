@@ -5,12 +5,35 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const StreamChat = require('stream-chat').StreamChat;
-
+const Premium = require('../Model/premium');
 const JWT_SECRET = process.env.JWT_SECRET;
 const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 dotenv.config();
 const mongoose = require('mongoose');
+
+router.post('/createPremium', async (req, res) => {
+    try {
+        const { userId, userName, userImageUrl, imageUrl } = req.body;
+
+        if (!userId || !userName || !userImageUrl || !imageUrl) {
+            return res.status(400).json({ success: false, message: 'All fields are required' });
+        }
+
+        const newPremium = new Premium({
+            userId,
+            userName,
+            userImageUrl,
+            imageUrl
+        });
+
+        await newPremium.save();
+        res.status(201).json({ success: true, message: 'Premium entry created successfully', premium: newPremium });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
 
 router.get('/getListUsers', async (req, res) => {
         try {
