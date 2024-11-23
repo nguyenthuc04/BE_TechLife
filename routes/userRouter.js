@@ -35,6 +35,112 @@ router.post('/createPremium', async (req, res) => {
     }
 });
 
+router.post('/approveMentor/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Tìm thông tin đăng ký trong bảng Premium
+        const premiumRequest = await Premium.findById(id);
+        if (!premiumRequest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy yêu cầu đăng ký mentor'
+            });
+        }
+
+        // Cập nhật accountType của user
+        const user = await Users.findById(premiumRequest.userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng liên quan'
+            });
+        }
+
+        // Kiểm tra xem người dùng đã là mentor chưa
+        if (user.accountType === 'mentor') {
+            return res.status(400).json({
+                success: false,
+                message: 'Người dùng đã là mentor rồi, không cần chuyển đổi'
+            });
+        }
+
+        if (user.accountType !== 'mentee') {
+            return res.status(400).json({
+                success: false,
+                message: 'Người dùng không phải mentee, không thể chuyển đổi thành mentor'
+            });
+        }
+
+        // Chuyển đổi tài khoản thành mentor
+        user.accountType = 'mentor';
+        await user.save();
+
+        // Xóa yêu cầu trong bảng Premium
+        await Premium.findByIdAndDelete(id);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Người dùng đã được chuyển đổi thành mentor thành công',
+            data: {
+                user: user,
+                premiumRequest: premiumRequest
+            },
+        });
+    } catch (error) {
+        console.error('Lỗi khi duyệt mentor:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi trong quá trình duyệt mentor'
+        });
+    }
+});
+router.get('/getPremiumRequests', async (req, res) => {
+    try {
+        const premiumRequests = await Premium.find();
+        return res.status(200).json({
+            success: true,
+            data: premiumRequests, // Trả về mảng rỗng nếu không có tài liệu
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy yêu cầu premium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi lấy yêu cầu'
+        });
+    }
+});
+
+
+
+// Xóa yêu cầu Premium
+router.delete('/deletePremiumRequest/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await Premium.findByIdAndDelete(id);
+
+        if (!result) {
+            return res.status(200).json({  // Không trả lỗi nếu không tìm thấy
+                success: true,
+                message: 'Yêu cầu không tồn tại, nhưng đã xử lý thành công'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Yêu cầu đã được xóa thành công'
+        });
+    } catch (error) {
+        console.error('Lỗi khi xóa yêu cầu:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi xóa yêu cầu'
+        });
+    }
+});
+
+
+
 router.get('/getListUsers', async (req, res) => {
         try {
             const users = await Users.find();
