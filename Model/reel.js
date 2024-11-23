@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const Reels = new mongoose.Schema({
     reelId: { type: String, required: true },
     caption: { type: String, required: true },
-    videoUrl: { type: String, required: true },
+    videoUrl: [{ type: String, required: true }],
     createdAt: { type: Date, default: Date.now, required: true },
     likesCount: { type: Number, required: true },
     commentsCount: { type: Number, required: true },

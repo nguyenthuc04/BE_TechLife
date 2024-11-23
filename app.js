@@ -15,7 +15,7 @@ var reelRouter = require('./routes/reelRouter');
 var reelLikesRouter = require('./routes/reelLikesRouter');
 var reelCommentsRouter = require('./routes/reelCommentsRouter');
 var staffRouter = require('./routes/staffRouter');
-
+var reviewRouter = require('./routes/revenueRoutes');
 
 var app = express();
 
@@ -51,7 +51,7 @@ app.use('/', reelRouter)
 app.use('/', reelLikesRouter)
 app.use('/', reelCommentsRouter)
 app.use('/', staffRouter)
-
+app.use('/', reviewRouter)
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
