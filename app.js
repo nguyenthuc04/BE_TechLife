@@ -4,6 +4,7 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+const cors = require('cors');
 
 var usersRouter = require('./routes/userRouter');
 var courseRouter = require('./routes/courseRouter');
@@ -13,11 +14,15 @@ var postLikesRouter = require('./routes/postLikesRouter');
 var reelRouter = require('./routes/reelRouter');
 var reelLikesRouter = require('./routes/reelLikesRouter');
 var reelCommentsRouter = require('./routes/reelCommentsRouter');
+var staffRouter = require('./routes/staffRouter');
 
 
 var app = express();
 const mongoose = require('mongoose');
 mongoose.connect('mongodb+srv://nguyentrungthuc555:honest2004@cluster0.qkoy9qi.mongodb.net/api?retryWrites=true&w=majority&appName=Cluster0', {});
+
+// Middleware để xử lý CORS
+app.use(cors());
 
 const db = mongoose.connection;
 db.on('error', console.error.bind(console, 'Lỗi kết nối MongoDB:'));
@@ -44,6 +49,7 @@ app.use('/', postCommentsRouter);
 app.use('/', reelRouter)
 app.use('/', reelLikesRouter)
 app.use('/', reelCommentsRouter)
+app.use('/', staffRouter)
 
 
 // catch 404 and forward to error handler

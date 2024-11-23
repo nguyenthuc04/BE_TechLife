@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const Course = require('../Model/course');
 
-
+// Lấy danh sách khóa học
 router.get('/getListCourses', async (req, res) => {
     try {
         const courses = await Course.find();
@@ -14,14 +14,21 @@ router.get('/getListCourses', async (req, res) => {
     }
 });
 
-
+// Lấy thông tin khóa học theo ID
 router.get('/getCourse/:id', async (req, res) => {
     try {
         const courseId = req.params.id;
+
+        // Kiểm tra nếu ID không hợp lệ
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            return res.status(400).json({ message: 'ID khóa học không hợp lệ!' });
+        }
+
         const course = await Course.findById(courseId);
         if (!course) {
             return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
         }
+
         res.json(course);
     } catch (error) {
         console.error(error);
@@ -29,11 +36,17 @@ router.get('/getCourse/:id', async (req, res) => {
     }
 });
 
+// Lấy danh sách khóa học của một người dùng
 router.get('/getCoursesByUser/:idUser', async (req, res) => {
     try {
         const { idUser } = req.params;
-        const courses = await Course.find({ idUser });
 
+        // Kiểm tra nếu ID người dùng không hợp lệ
+        if (!mongoose.Types.ObjectId.isValid(idUser)) {
+            return res.status(400).json({ message: 'ID người dùng không hợp lệ!' });
+        }
+
+        const courses = await Course.find({ idUser });
         res.json(courses);
     } catch (error) {
         console.error(error);
@@ -41,18 +54,17 @@ router.get('/getCoursesByUser/:idUser', async (req, res) => {
     }
 });
 
-
+// Thêm khóa học mới
 router.post('/addCourse', async (req, res) => {
     try {
-        const { name, date, price, duration, idUser } = req.body;
+        const { name, date, price, duration, describe, idUser } = req.body;
 
-        // Kiểm tra nếu `idUser` không được cung cấp
+        // Kiểm tra các trường bắt buộc
         if (!idUser) {
             return res.status(400).json({ message: 'idUser là bắt buộc!' });
         }
-
-        const course = new Course({ name, date, price, duration, idUser });
-
+        // Tạo mới khóa học
+        const course = new Course({ name, date, price, duration, describe, idUser });
         await course.save();
 
         res.status(201).json(course);
@@ -62,21 +74,28 @@ router.post('/addCourse', async (req, res) => {
     }
 });
 
-
+// Cập nhật khóa học
 router.put('/updateCourse/:id', async (req, res) => {
     try {
         const courseId = req.params.id;
-        const { name, date, price, duration } = req.body;
+        const { name, date, price, duration, describe } = req.body;
+
+        // Kiểm tra ID khóa học có hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            return res.status(400).json({ message: 'ID khóa học không hợp lệ!' });
+        }
 
         const course = await Course.findById(courseId);
         if (!course) {
             return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
         }
 
+        // Cập nhật thông tin khóa học
         course.name = name;
         course.date = date;
         course.price = price;
         course.duration = duration;
+        course.describe = describe;
 
         await course.save();
         res.json(course);
@@ -86,7 +105,7 @@ router.put('/updateCourse/:id', async (req, res) => {
     }
 });
 
-// API xóa khóa học
+// Xóa khóa học
 router.delete('/deleteCourse/:id', async (req, res) => {
     try {
         const courseId = req.params.id;
@@ -96,7 +115,6 @@ router.delete('/deleteCourse/:id', async (req, res) => {
             return res.status(400).json({ message: 'ID không hợp lệ!' });
         }
 
-        // Xóa khóa học
         const course = await Course.findByIdAndDelete(courseId);
         if (!course) {
             return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
@@ -108,7 +126,5 @@ router.delete('/deleteCourse/:id', async (req, res) => {
         res.status(500).json({ message: 'Lỗi khi xóa khóa học!' });
     }
 });
-
-module.exports = router;
 
 module.exports = router;

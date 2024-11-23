@@ -46,6 +46,28 @@ router.get('/getListUsers', async (req, res) => {
     }
 );
 
+router.get('/getListUsersByAccountType', async (req, res) => {
+    try {
+        // Lấy giá trị 'accountType' từ query parameters
+        const { accountType } = req.query; // Ví dụ: /getListUsers?accountType=admin
+
+        // Kiểm tra nếu có accountType được truyền vào
+        let query = {};
+        if (accountType) {
+            query.accountType = accountType; // Thêm điều kiện accountType vào query nếu có
+        }
+
+        // Truy vấn người dùng từ database với điều kiện nếu có
+        const users = await Users.find(query);  // Sử dụng query với điều kiện nếu có accountType
+        const count = await Users.countDocuments(query);
+        res.json({users, count});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi khi lấy dữ liệu người dùng!' });
+    }
+});
+
+
 router.get('/getUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
@@ -362,7 +384,155 @@ router.post('/unfollow', async (req, res) => {
     }
 });
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
+router.get('/', async (req, res) => {
+    const { search, page = 1, limit = 10 } = req.query;
+    try {
+        const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+        const users = await Users.find(query)
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+        const total = await Users.countDocuments(query);
 
+        res.json({ users, total });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Thêm người dùng mới
+router.post('/', async (req, res) => {
+    const newUser = new Users(req.body);
+    try {
+        const savedUser = await newUser.save();
+        res.status(201).json(savedUser);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// Chỉnh sửa thông tin người dùng
+router.put('/:id', async (req, res) => {
+    try {
+        const updatedUser = await Users.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(updatedUser);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// Xóa người dùng
+router.delete('/:id', async (req, res) => {
+    try {
+        await Users.findByIdAndDelete(req.params.id);
+        res.json({ message: 'User deleted' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Thống kê
+router.get('/stats', async (req, res) => {
+    try {
+        const totalUsers = await Users.countDocuments();
+        const accountTypes = await Users.aggregate([
+            { $group: { _id: '$accountType', count: { $sum: 1 } } },
+        ]);
+        res.json({ totalUsers, accountTypes });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.post('/loginweb', async (req, res) => {
+    try {
+        const {account, password} = req.body;
+        console.log("Dữ liệu nhận được từ client:", req.body.account);
+
+        // Kiểm tra tài khoản
+        const user = await Users.findOne({account : account});
+        if (!user) {
+            return res.status(404).json({message: 'Tài khoản không tồn tại!'});
+        }
+
+        // Kiểm tra mật khẩu
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({message: 'Mật khẩu không đúng!'});
+        }
+
+        console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
+        // Tạo token JWT cho phiên làm việc
+        const token = jwt.sign(
+            {userId: user._id, account: user.account},
+            "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key lưu trong biến môi trường
+            {expiresIn: '1h'}     // Token có hiệu lực trong 1 giờ
+        );
+
+
+        res.json({
+            message: 'Đăng nhập thành công!',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                account: user.account,
+                avatar: user.avatar,
+                accountType : user.accountType
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
+    }
+});
+
+router.post('/changepassword', async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+
+        // Xác thực token và tìm người dùng
+        const token = req.cookies.token; // Hoặc token từ header Authorization
+        if (!token) {
+            return res.status(401).json({ message: 'Bạn chưa đăng nhập!' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await Users.findById(decoded.userId);
+
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy tài khoản!' });
+        }
+
+        // Xác thực mật khẩu cũ
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Mật khẩu cũ không đúng!' });
+        }
+
+        // Hash mật khẩu mới
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Cập nhật mật khẩu mới
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ message: 'Đổi mật khẩu thành công!' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Lỗi hệ thống khi đổi mật khẩu!' });
+    }
+});
+
+router.post('/logout', (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    console.log(`User logged out with token: ${token}`);
+    res.status(200).json({ message: 'Logout logged!' });
+});
 
 
 module.exports = router;
