@@ -5,10 +5,36 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const StreamChat = require('stream-chat').StreamChat;
-
+const Premium = require('../Model/premium');
+const JWT_SECRET = process.env.JWT_SECRET;
+const STREAM_API_KEY = process.env.STREAM_API_KEY;
+const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 dotenv.config();
 const mongoose = require('mongoose');
 const Staff = require("../Model/staff");
+
+router.post('/createPremium', async (req, res) => {
+    try {
+        const { userId, userName, userImageUrl, imageUrl } = req.body;
+
+        if (!userId || !userName || !userImageUrl || !imageUrl) {
+            return res.status(400).json({ success: false, message: 'All fields are required' });
+        }
+
+        const newPremium = new Premium({
+            userId,
+            userName,
+            userImageUrl,
+            imageUrl
+        });
+
+        await newPremium.save();
+        res.status(201).json({ success: true, message: 'Premium entry created successfully', premium: newPremium });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
 
 router.get('/getListUsers', async (req, res) => {
         try {
@@ -48,7 +74,7 @@ router.get('/getUser/:id', async (req, res) => {
         const userId = req.params.id;
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
+            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
         }
         res.json({
             user,
@@ -58,15 +84,16 @@ router.get('/getUser/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
+        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
     }
 });
 
+
 router.post('/createUser', async (req, res) => {
     try {
-        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
+        const {account, password, birthday, name,nickname, bio, avatar, accountType} = req.body;
 
-        if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType) {
+        if (!account || !password || !birthday || !name ||!nickname || !bio || !avatar || !accountType) {
             return res.status(400).json({message: 'Vui lòng cung cấp tất cả các trường bắt buộc!'});
         }
 
@@ -152,7 +179,7 @@ router.post('/login', async (req, res) => {
                 avatar: user.avatar,
                 password: user.password
             },
-            streamToken: streamToken
+            streamToken : streamToken
         });
         console.log("id user chat = ", user._id);
     } catch (error) {
@@ -212,12 +239,12 @@ router.post('/login1', async (req, res) => {
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
+        const { account, password, birthday, name, nickname, bio, avatar, accountType } = req.body;
 
         // Find the user by ID
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
+            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
         }
 
         // Update user fields
@@ -234,32 +261,32 @@ router.put('/updateUser/:id', async (req, res) => {
 
         // Save the updated user
         await user.save();
-        res.json({message: 'Người dùng đã được cập nhật thành công!', user});
+        res.json({ message: 'Người dùng đã được cập nhật thành công!', user });
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi khi cập nhật người dùng!'});
+        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
     }
 });
 
 router.post('/checkEmail', async (req, res) => {
     try {
-        const {account} = req.body;
+        const { account } = req.body;
 
         // Check if email is provided
         if (!account) {
-            return res.status(400).json({message: 'Vui lòng cung cấp email!'});
+            return res.status(400).json({ message: 'Vui lòng cung cấp email!' });
         }
 
         // Find the user by email
-        const user = await Users.findOne({account});
+        const user = await Users.findOne({ account });
         if (user) {
-            return res.status(200).json({exists: true, message: 'Email đã tồn tại!', account});
+            return res.status(200).json({ exists: true, message: 'Email đã tồn tại!',account });
         } else {
-            return res.status(200).json({exists: false, message: 'Email chưa được sử dụng!', account});
+            return res.status(200).json({ exists: false, message: 'Email chưa được sử dụng!',account  });
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: 'Lỗi hệ thống khi kiểm tra email!'});
+        res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
     }
 });
 
