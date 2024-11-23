@@ -467,8 +467,8 @@ router.post('/changepassword', async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
 
-        // Xác thực token và tìm người dùng
-        const token = req.cookies.token; // Hoặc token từ header Authorization
+        // Xác thực token từ cookie hoặc header
+        const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
         if (!token) {
             return res.status(401).json({ message: 'Bạn chưa đăng nhập!' });
         }
@@ -486,26 +486,19 @@ router.post('/changepassword', async (req, res) => {
             return res.status(401).json({ message: 'Mật khẩu cũ không đúng!' });
         }
 
-        // Hash mật khẩu mới
+        // Hash mật khẩu mới và lưu lại
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Cập nhật mật khẩu mới
         user.password = hashedPassword;
         await user.save();
 
         res.json({ message: 'Đổi mật khẩu thành công!' });
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Lỗi hệ thống khi đổi mật khẩu!' });
     }
 });
 
-router.post('/logout', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    console.log(`User logged out with token: ${token}`);
-    res.status(200).json({ message: 'Logout logged!' });
-});
+
 
 
 module.exports = router;
