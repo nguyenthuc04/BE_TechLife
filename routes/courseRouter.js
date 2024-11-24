@@ -3,6 +3,38 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const Course = require('../Model/course');
 
+
+router.post('/createCourse', async (req, res) => {
+    try {
+        const { name, quantity, imageUrl, price, duration, describe, userId, userName, userImageUrl } = req.body;
+
+        if (!name || !quantity || !imageUrl || !price || !duration || !describe || !userId || !userName || !userImageUrl) {
+            return res.status(400).json({ success: false, message: 'All fields are required' });
+        }
+
+        const newCourse = new Course({
+            name,
+            quantity,
+            imageUrl,
+            date : new Date().toISOString(),
+            price,
+            duration,
+            describe,
+            userId,
+            userName,
+            userImageUrl
+        });
+
+        await newCourse.save();
+        res.status(201).json({ success: true, message: 'Course created successfully', course: newCourse });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+
+
 // Lấy danh sách khóa học
 router.get('/getListCourses', async (req, res) => {
     try {
@@ -15,116 +47,93 @@ router.get('/getListCourses', async (req, res) => {
 });
 
 // Lấy thông tin khóa học theo ID
-router.get('/getCourse/:id', async (req, res) => {
+router.get('/getCoursesByUser/:userId', async (req, res) => {
     try {
-        const courseId = req.params.id;
+        const userId = req.params.userId;
 
-        // Kiểm tra nếu ID không hợp lệ
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: 'Invalid userId' });
+        }
+
+        const courses = await Course.find({ userId });
+        if (!courses.length) {
+            return res.status(404).json({ success: false, message: 'No courses found for this user' });
+        }
+
+        res.status(200).json({ success: true, courses });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+router.get('/getCourseById/:courseId', async (req, res) => {
+    try {
+        const courseId = req.params.courseId;
+
         if (!mongoose.Types.ObjectId.isValid(courseId)) {
-            return res.status(400).json({ message: 'ID khóa học không hợp lệ!' });
+            return res.status(400).json({ success: false, message: 'Invalid courseId' });
         }
 
         const course = await Course.findById(courseId);
         if (!course) {
-            return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
+            return res.status(404).json({ success: false, message: 'Course not found' });
         }
 
-        res.json(course);
+        res.status(200).json({ success: true, course });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi lấy thông tin khóa học!' });
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Lấy danh sách khóa học của một người dùng
-router.get('/getCoursesByUser/:idUser', async (req, res) => {
+router.put('/updateCourse/:courseId', async (req, res) => {
     try {
-        const { idUser } = req.params;
+        const courseId = req.params.courseId;
+        const { name, quantity, imageUrl, price, duration, describe } = req.body;
 
-        // Kiểm tra nếu ID người dùng không hợp lệ
-        if (!mongoose.Types.ObjectId.isValid(idUser)) {
-            return res.status(400).json({ message: 'ID người dùng không hợp lệ!' });
-        }
-
-        const courses = await Course.find({ idUser });
-        res.json(courses);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi khi lấy danh sách khóa học!' });
-    }
-});
-
-// Thêm khóa học mới
-router.post('/addCourse', async (req, res) => {
-    try {
-        const { name, date, price, duration, describe, idUser } = req.body;
-
-        // Kiểm tra các trường bắt buộc
-        if (!idUser) {
-            return res.status(400).json({ message: 'idUser là bắt buộc!' });
-        }
-        // Tạo mới khóa học
-        const course = new Course({ name, date, price, duration, describe, idUser });
-        await course.save();
-
-        res.status(201).json(course);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Lỗi khi tạo khóa học!' });
-    }
-});
-
-// Cập nhật khóa học
-router.put('/updateCourse/:id', async (req, res) => {
-    try {
-        const courseId = req.params.id;
-        const { name, date, price, duration, describe } = req.body;
-
-        // Kiểm tra ID khóa học có hợp lệ không
         if (!mongoose.Types.ObjectId.isValid(courseId)) {
-            return res.status(400).json({ message: 'ID khóa học không hợp lệ!' });
+            return res.status(400).json({ success: false, message: 'Invalid courseId' });
         }
 
-        const course = await Course.findById(courseId);
-        if (!course) {
-            return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
+        const updatedCourse = await Course.findByIdAndUpdate(
+            courseId,
+            { name, quantity, imageUrl, price, duration, describe },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedCourse) {
+            return res.status(404).json({ success: false, message: 'Course not found' });
         }
 
-        // Cập nhật thông tin khóa học
-        course.name = name;
-        course.date = date;
-        course.price = price;
-        course.duration = duration;
-        course.describe = describe;
-
-        await course.save();
-        res.json(course);
+        res.status(200).json({ success: true, message: 'Course updated successfully', course: updatedCourse });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi cập nhật khóa học!' });
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 
-// Xóa khóa học
-router.delete('/deleteCourse/:id', async (req, res) => {
+router.delete('/deleteCourse/:courseId', async (req, res) => {
     try {
-        const courseId = req.params.id;
+        const courseId = req.params.courseId;
 
-        // Kiểm tra xem ID có phải là ObjectId hợp lệ không
         if (!mongoose.Types.ObjectId.isValid(courseId)) {
-            return res.status(400).json({ message: 'ID không hợp lệ!' });
+            return res.status(400).json({ success: false, message: 'Invalid courseId' });
         }
 
-        const course = await Course.findByIdAndDelete(courseId);
-        if (!course) {
-            return res.status(404).json({ message: 'Không tìm thấy khóa học với ID cung cấp!' });
+        const deletedCourse = await Course.findByIdAndDelete(courseId);
+
+        if (!deletedCourse) {
+            return res.status(404).json({ success: false, message: 'Course not found' });
         }
 
-        res.status(204).send(); // Trả về 204 No Content
+        res.status(200).json({ success: true, message: 'Course deleted successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi xóa khóa học!' });
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
+
+
 
 module.exports = router;

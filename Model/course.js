@@ -1,12 +1,23 @@
 const mongoose = require('mongoose');
 
+const userSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    userName: { type: String, required: true },
+    avatar: { type: String , required: true },
+});
+
 const courseSchema = new mongoose.Schema({
     name: { type: String, required: true },
+    quantity: { type: String, required: true },
+    imageUrl: { type: String, required: true },
     date: { type: String, required: true },
     price: { type: String, required: true },
     duration: { type: String, required: true },
     describe: { type: String, required: true },
-    idUser: { type: mongoose.Schema.Types.ObjectId, ref: 'Users', required: true } // Tham chiếu đến bảng Users
+    userId: { type: String, required: true },
+    userName: { type: String, required: true },
+    userImageUrl: { type: String, required: true },
+    user: { type:[userSchema], default: [] },
 });
 
 const Course = mongoose.model('Course', courseSchema);
