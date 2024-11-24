@@ -11,6 +11,7 @@ const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 dotenv.config();
 const mongoose = require('mongoose');
+const Staff = require("../Model/staff");
 
 router.post('/createPremium', async (req, res) => {
     try {
@@ -34,6 +35,112 @@ router.post('/createPremium', async (req, res) => {
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
+
+router.post('/approveMentor/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Tìm thông tin đăng ký trong bảng Premium
+        const premiumRequest = await Premium.findById(id);
+        if (!premiumRequest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy yêu cầu đăng ký mentor'
+            });
+        }
+
+        // Cập nhật accountType của user
+        const user = await Users.findById(premiumRequest.userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy người dùng liên quan'
+            });
+        }
+
+        // Kiểm tra xem người dùng đã là mentor chưa
+        if (user.accountType === 'mentor') {
+            return res.status(400).json({
+                success: false,
+                message: 'Người dùng đã là mentor rồi, không cần chuyển đổi'
+            });
+        }
+
+        if (user.accountType !== 'mentee') {
+            return res.status(400).json({
+                success: false,
+                message: 'Người dùng không phải mentee, không thể chuyển đổi thành mentor'
+            });
+        }
+
+        // Chuyển đổi tài khoản thành mentor
+        user.accountType = 'mentor';
+        await user.save();
+
+        // Xóa yêu cầu trong bảng Premium
+        await Premium.findByIdAndDelete(id);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Người dùng đã được chuyển đổi thành mentor thành công',
+            data: {
+                user: user,
+                premiumRequest: premiumRequest
+            },
+        });
+    } catch (error) {
+        console.error('Lỗi khi duyệt mentor:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi trong quá trình duyệt mentor'
+        });
+    }
+});
+router.get('/getPremiumRequests', async (req, res) => {
+    try {
+        const premiumRequests = await Premium.find();
+        return res.status(200).json({
+            success: true,
+            data: premiumRequests, // Trả về mảng rỗng nếu không có tài liệu
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy yêu cầu premium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi lấy yêu cầu'
+        });
+    }
+});
+
+
+
+// Xóa yêu cầu Premium
+router.delete('/deletePremiumRequest/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await Premium.findByIdAndDelete(id);
+
+        if (!result) {
+            return res.status(200).json({  // Không trả lỗi nếu không tìm thấy
+                success: true,
+                message: 'Yêu cầu không tồn tại, nhưng đã xử lý thành công'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Yêu cầu đã được xóa thành công'
+        });
+    } catch (error) {
+        console.error('Lỗi khi xóa yêu cầu:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi xóa yêu cầu'
+        });
+    }
+});
+
+
 
 router.get('/getListUsers', async (req, res) => {
         try {
@@ -386,7 +493,7 @@ router.post('/unfollow', async (req, res) => {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
-router.get('/', async (req, res) => {
+router.get('/getListUserQT', async (req, res) => {
     const { search, page = 1, limit = 10 } = req.query;
     try {
         const query = search ? { name: { $regex: search, $options: 'i' } } : {};
@@ -402,28 +509,59 @@ router.get('/', async (req, res) => {
 });
 
 // Thêm người dùng mới
-router.post('/', async (req, res) => {
-    const newUser = new Users(req.body);
+router.post('/createUserQT', async (req, res) => {
+    const { account, password, birthday, name, nickname, bio, avatar, accountType,following, followers, posts } = req.body;
+
+    if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType || !following || !followers || !posts) {
+        return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin nhân viên!' });
+    }
+
     try {
-        const savedUser = await newUser.save();
-        res.status(201).json(savedUser);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
+        const newUser = new Users({ account, password, birthday, name, nickname, bio, avatar, accountType,following, followers, posts });
+        await newUser.save();
+        res.status(201).json({ message: 'Nhân viên đã được tạo thành công!', user: newUser });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi khi tạo nhân viên!' });
     }
 });
 
-// Chỉnh sửa thông tin người dùng
-router.put('/:id', async (req, res) => {
+// Lấy thông tin user theo ID
+router.get('/getUserQT/:id', async (req, res) => {
     try {
-        const updatedUser = await Users.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        res.json(updatedUser);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
+        const user = await Users.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
+    }
+});
+
+// Cập nhật thông tin người dùng
+router.put('/updateUserQT/:id', async (req, res) => {
+    try {
+        const user = await Users.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
+        }
+
+        // Cập nhật các trường có trong body
+        Object.keys(req.body).forEach(key => {
+            if (req.body[key] != null) {
+                user[key] = req.body[key];
+            }
+        });
+
+        await user.save();
+        res.status(200).json({ message: 'Người dùng đã được cập nhật thành công!', user });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
     }
 });
 
 // Xóa người dùng
-router.delete('/:id', async (req, res) => {
+router.delete('deleteUserQT/:id', async (req, res) => {
     try {
         await Users.findByIdAndDelete(req.params.id);
         res.json({ message: 'User deleted' });
@@ -494,8 +632,8 @@ router.post('/changepassword', async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
 
-        // Xác thực token và tìm người dùng
-        const token = req.cookies.token; // Hoặc token từ header Authorization
+        // Xác thực token từ cookie hoặc header
+        const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
         if (!token) {
             return res.status(401).json({ message: 'Bạn chưa đăng nhập!' });
         }
@@ -513,26 +651,19 @@ router.post('/changepassword', async (req, res) => {
             return res.status(401).json({ message: 'Mật khẩu cũ không đúng!' });
         }
 
-        // Hash mật khẩu mới
+        // Hash mật khẩu mới và lưu lại
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Cập nhật mật khẩu mới
         user.password = hashedPassword;
         await user.save();
 
         res.json({ message: 'Đổi mật khẩu thành công!' });
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Lỗi hệ thống khi đổi mật khẩu!' });
     }
 });
 
-router.post('/logout', (req, res) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    console.log(`User logged out with token: ${token}`);
-    res.status(200).json({ message: 'Logout logged!' });
-});
+
 
 
 module.exports = router;

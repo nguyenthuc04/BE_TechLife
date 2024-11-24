@@ -168,5 +168,104 @@ router.get('/getPostsByUser/:userId', async (req, res) => {
     }
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+const AcceptedPost = require('../Model/acceptedPost');
+// API chấp nhận bài viết
+router.put('/postsQT/:id/accept', async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+        }
 
+        // Kiểm tra xem bài viết đã được chấp nhận chưa
+        const existingAcceptedPost = await AcceptedPost.findOne({ postId });
+        if (existingAcceptedPost) {
+            return res.status(400).json({ error: 'Bài viết đã được chấp nhận trước đó' });
+        }
+
+        // Tạo một bản ghi mới trong collection AcceptedPost
+        const acceptedPost = new AcceptedPost({ postId });
+        await acceptedPost.save();
+
+        res.status(200).json({ message: 'Chấp nhận bài viết thành công', post });
+    } catch (error) {
+        res.status(500).json({ error: 'Lỗi khi chấp nhận bài viết' });
+    }
+});
+
+// Cập nhật API lấy danh sách bài viết để chỉ trả về các bài viết chưa được chấp nhận
+router.get('/postsQT', async (req, res) => {
+    try {
+        const acceptedPostIds = await AcceptedPost.find().distinct('postId');
+        const posts = await Posts.find({ _id: { $nin: acceptedPostIds } });
+
+        const processedPosts = posts.map(post => {
+            if (Array.isArray(post.imageUrl) && post.imageUrl.length > 0) {
+                post.imageUrl = post.imageUrl.map(url => url);
+            } else {
+                post.imageUrl = [];
+            }
+            return post;
+        });
+
+        res.status(200).json(processedPosts);
+    } catch (error) {
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách bài viết' });
+    }
+});
+
+router.get('/postsQT/accepted', async (req, res) => {
+    try {
+        const acceptedPosts = await AcceptedPost.find().populate('postId');
+        const processedPosts = acceptedPosts.map(acceptedPost => {
+            const post = acceptedPost.postId;
+            return {
+                ...post.toObject(),
+                acceptedAt: acceptedPost.acceptedAt
+            };
+        });
+        res.status(200).json(processedPosts);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách bài viết đã chấp nhận:', error);
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách bài viết đã chấp nhận' });
+    }
+});
+
+router.put('/postsQT/:id/unarchive', async (req, res) => {
+    try {
+        const postId = req.params.id;
+
+        // Xóa bài viết khỏi danh sách đã chấp nhận
+        await AcceptedPost.findOneAndDelete({ postId: postId });
+
+        // Lấy thông tin bài viết
+        const post = await Posts.findById(postId);
+
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+        }
+
+        res.status(200).json({ success: true, message: 'Bài viết đã được hủy lưu trữ', post: post });
+    } catch (error) {
+        console.error('Lỗi khi hủy lưu trữ bài viết:', error);
+        res.status(500).json({ success: false, error: 'Lỗi khi hủy lưu trữ bài viết' });
+    }
+});
+
+// API xóa bài viết
+router.delete('/postsQT/:id', async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const deletedPost = await Posts.findByIdAndDelete(postId);
+        if (!deletedPost) {
+            return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+        }
+        res.status(200).json({ message: 'Xóa bài viết thành công' });
+    } catch (error) {
+        res.status(500).json({ error: 'Lỗi khi xóa bài viết' });
+    }
+});
+/////////////////////////////////
 module.exports = router;
