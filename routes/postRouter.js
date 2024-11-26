@@ -8,33 +8,33 @@ router.get('/getComments/:postId', async (req, res) => {
         const postId = req.params.postId;
 
         if (!mongoose.Types.ObjectId.isValid(postId)) {
-            return res.status(400).json({ success: false, message: 'Invalid postId' });
+            return res.status(400).json({success: false, message: 'Invalid postId'});
         }
 
         const post = await Posts.findById(postId);
         if (!post) {
-            return res.status(404).json({ success: false, message: 'Post not found' });
+            return res.status(404).json({success: false, message: 'Post not found'});
         }
 
-        res.status(200).json({ success: true, comments: post.comments });
+        res.status(200).json({success: true, comments: post.comments});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
 router.post('/addComment/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
-        const { userId, userName, userImageUrl, text } = req.body;
+        const {userId, userName, userImageUrl, text} = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(postId) || !userId || !userName || !userImageUrl || !text) {
-            return res.status(400).json({ success: false, message: 'Invalid input data' });
+            return res.status(400).json({success: false, message: 'Invalid input data'});
         }
 
         const post = await Posts.findById(postId);
         if (!post) {
-            return res.status(404).json({ success: false, message: 'Post not found' });
+            return res.status(404).json({success: false, message: 'Post not found'});
         }
 
         const newComment = {
@@ -50,10 +50,10 @@ router.post('/addComment/:postId', async (req, res) => {
 
         await post.save();
 
-        res.status(201).json({ success: true, message: 'Comment added successfully', post });
+        res.status(201).json({success: true, message: 'Comment added successfully', post});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
@@ -153,18 +153,80 @@ router.get('/getPostsByUser/:userId', async (req, res) => {
         const userId = req.params.userId;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ success: false, message: 'Invalid userId' });
+            return res.status(400).json({success: false, message: 'Invalid userId'});
         }
 
-        const posts = await Posts.find({ userId });
+        const posts = await Posts.find({userId});
         if (!posts.length) {
-            return res.status(404).json({ success: false, message: 'No posts found for this user' });
+            return res.status(404).json({success: false, message: 'No posts found for this user'});
         }
 
-        res.status(200).json({ success: true, posts });
+        res.status(200).json({success: true, posts});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+
+// Delete Post
+router.delete('/deletePost/:postId', async (req, res) => {
+    try {
+        const postId = req.params.postId;
+
+        // Validate postId
+        if (!mongoose.Types.ObjectId.isValid(postId)) {
+            return res.status(400).json({success: false, message: 'Invalid postId'});
+        }
+
+        // Check if the post exists
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({success: false, message: 'Post not found'});
+        }
+
+        // Optionally: Check if the user is authorized to delete the post
+        // This can depend on your authentication middleware or logic
+        // e.g., if (req.user.id !== post.userId.toString()) return res.status(403).json({ message: 'Unauthorized' });
+
+        // Delete the post
+        await Posts.findByIdAndDelete(postId);
+
+        res.status(200).json({success: true, message: 'Post deleted successfully'});
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        res.status(500).json({success: false, message: 'An unexpected error occurred while deleting the post'});
+    }
+});
+
+// Update Post
+router.put('/updatePost/:postId', async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const { caption } = req.body; // Only expect 'caption' to be updated
+
+        // Validate postId
+        if (!mongoose.Types.ObjectId.isValid(postId)) {
+            return res.status(400).json({ success: false, message: 'Invalid postId' });
+        }
+
+        // Find the post by postId
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
+        }
+
+        // If caption is provided, update it
+        if (caption !== undefined) {
+            post.caption = caption;
+        }
+
+        // Save the updated post
+        await post.save();
+
+        res.status(200).json({ success: true, message: 'Post updated successfully', post });
+    } catch (error) {
+        console.error('Error updating post:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error occurred while updating the post' });
     }
 });
 
@@ -176,22 +238,22 @@ router.put('/postsQT/:id/accept', async (req, res) => {
         const postId = req.params.id;
         const post = await Posts.findById(postId);
         if (!post) {
-            return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+            return res.status(404).json({error: 'Không tìm thấy bài viết'});
         }
 
         // Kiểm tra xem bài viết đã được chấp nhận chưa
-        const existingAcceptedPost = await AcceptedPost.findOne({ postId });
+        const existingAcceptedPost = await AcceptedPost.findOne({postId});
         if (existingAcceptedPost) {
-            return res.status(400).json({ error: 'Bài viết đã được chấp nhận trước đó' });
+            return res.status(400).json({error: 'Bài viết đã được chấp nhận trước đó'});
         }
 
         // Tạo một bản ghi mới trong collection AcceptedPost
-        const acceptedPost = new AcceptedPost({ postId });
+        const acceptedPost = new AcceptedPost({postId});
         await acceptedPost.save();
 
-        res.status(200).json({ message: 'Chấp nhận bài viết thành công', post });
+        res.status(200).json({message: 'Chấp nhận bài viết thành công', post});
     } catch (error) {
-        res.status(500).json({ error: 'Lỗi khi chấp nhận bài viết' });
+        res.status(500).json({error: 'Lỗi khi chấp nhận bài viết'});
     }
 });
 
@@ -199,7 +261,7 @@ router.put('/postsQT/:id/accept', async (req, res) => {
 router.get('/postsQT', async (req, res) => {
     try {
         const acceptedPostIds = await AcceptedPost.find().distinct('postId');
-        const posts = await Posts.find({ _id: { $nin: acceptedPostIds } });
+        const posts = await Posts.find({_id: {$nin: acceptedPostIds}});
 
         const processedPosts = posts.map(post => {
             if (Array.isArray(post.imageUrl) && post.imageUrl.length > 0) {
@@ -212,7 +274,7 @@ router.get('/postsQT', async (req, res) => {
 
         res.status(200).json(processedPosts);
     } catch (error) {
-        res.status(500).json({ error: 'Lỗi khi lấy danh sách bài viết' });
+        res.status(500).json({error: 'Lỗi khi lấy danh sách bài viết'});
     }
 });
 
@@ -229,7 +291,7 @@ router.get('/postsQT/accepted', async (req, res) => {
         res.status(200).json(processedPosts);
     } catch (error) {
         console.error('Lỗi khi lấy danh sách bài viết đã chấp nhận:', error);
-        res.status(500).json({ error: 'Lỗi khi lấy danh sách bài viết đã chấp nhận' });
+        res.status(500).json({error: 'Lỗi khi lấy danh sách bài viết đã chấp nhận'});
     }
 });
 
@@ -238,19 +300,19 @@ router.put('/postsQT/:id/unarchive', async (req, res) => {
         const postId = req.params.id;
 
         // Xóa bài viết khỏi danh sách đã chấp nhận
-        await AcceptedPost.findOneAndDelete({ postId: postId });
+        await AcceptedPost.findOneAndDelete({postId: postId});
 
         // Lấy thông tin bài viết
         const post = await Posts.findById(postId);
 
         if (!post) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy bài viết' });
+            return res.status(404).json({success: false, message: 'Không tìm thấy bài viết'});
         }
 
-        res.status(200).json({ success: true, message: 'Bài viết đã được hủy lưu trữ', post: post });
+        res.status(200).json({success: true, message: 'Bài viết đã được hủy lưu trữ', post: post});
     } catch (error) {
         console.error('Lỗi khi hủy lưu trữ bài viết:', error);
-        res.status(500).json({ success: false, error: 'Lỗi khi hủy lưu trữ bài viết' });
+        res.status(500).json({success: false, error: 'Lỗi khi hủy lưu trữ bài viết'});
     }
 });
 
@@ -260,11 +322,11 @@ router.delete('/postsQT/:id', async (req, res) => {
         const postId = req.params.id;
         const deletedPost = await Posts.findByIdAndDelete(postId);
         if (!deletedPost) {
-            return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+            return res.status(404).json({error: 'Không tìm thấy bài viết'});
         }
-        res.status(200).json({ message: 'Xóa bài viết thành công' });
+        res.status(200).json({message: 'Xóa bài viết thành công'});
     } catch (error) {
-        res.status(500).json({ error: 'Lỗi khi xóa bài viết' });
+        res.status(500).json({error: 'Lỗi khi xóa bài viết'});
     }
 });
 /////////////////////////////////
