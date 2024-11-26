@@ -12,6 +12,74 @@ const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 dotenv.config();
 const mongoose = require('mongoose');
 const Staff = require("../Model/staff");
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+const transporter = nodemailer.createTransport({
+    service: 'Gmail',
+    auth: {
+        user: "tretrauzxx@gmail.com",
+        pass: "knhe erqn wugp seuh"
+    }
+});
+
+router.post('/sendEmail', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Find the user by email
+        const user = await Users.findOne({ account: email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate a 6-digit code
+        const resetCode = crypto.randomInt(100000, 999999).toString();
+
+        // Save the reset code to the user's document
+        user.resetCode = resetCode;
+        user.resetCodeExpiration = Date.now() + 3600000; // Code valid for 1 hour
+        await user.save();
+
+        // Send the email
+        const mailOptions = {
+            from: "tretrauzxx@gmail.com",
+            to: email,
+            subject: 'OTP Code',
+            text: `Your password reset code is ${resetCode}`
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ message: 'Reset code sent to email',code: resetCode });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'An error occurred while sending the reset code' });
+    }
+});
+
+router.post('/resetPassword', async (req, res) => {
+    try {
+        const { account, newPassword } = req.body;
+
+        // Find the user by account
+        const user = await Users.findOne({ account });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Hash the new password and save it
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        await user.save();
+
+        res.status(200).json({ success: true,message: 'Password reset successfully'});
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'An error occurred while resetting the password' });
+    }
+});
+
 
 router.post('/createPremium', async (req, res) => {
     try {
@@ -244,10 +312,63 @@ router.post('/createUser', async (req, res) => {
     }
 });
 
+router.post('/changepassword', async (req, res) => {
+    try {
+        const { account, oldPassword, newPassword } = req.body;
+
+        // Find the user by account
+        const user = await Users.findOne({ account });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Verify the old password
+        const isMatch = await bcrypt.compare(oldPassword, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Incorrect old password' });
+        }
+
+        // Hash the new password and save it
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'An error occurred while changing the password!' });
+    }
+});
+
+router.put('/updateLastLogin/:id', async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: 'Invalid userId' });
+        }
+
+        const updatedUser = await Users.findByIdAndUpdate(
+            userId,
+            { lastLog: Date.now() },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        res.status(200).json({ success: true, message: 'User last login time updated successfully', user: updatedUser });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
 router.post('/login', async (req, res) => {
     try {
         const {account, password} = req.body;
-
+        const pass = password
         // Kiểm tra tài khoản
         const user = await Users.findOne({account});
         if (!user) {
@@ -259,7 +380,6 @@ router.post('/login', async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({message: 'Mật khẩu không đúng!'});
         }
-
         console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
         // Tạo token JWT cho phiên làm việc
@@ -283,7 +403,7 @@ router.post('/login', async (req, res) => {
                 name: user.name,
                 account: user.account,
                 avatar: user.avatar,
-                password: user.password
+                password: pass
             },
             streamToken : streamToken
         });
@@ -304,9 +424,10 @@ router.post('/login1', async (req, res) => {
             return res.status(404).json({ message: 'Tài khoản không tồn tại!' });
         }
 
-        // So sánh trực tiếp mật khẩu băm (client) với mật khẩu băm (server)
-        if (password !== user.password) {
-            return res.status(401).json({ message: 'Mật khẩu không đúng!' });
+        // Kiểm tra mật khẩu
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({message: 'Mật khẩu không đúng!'});
         }
 
         // Tạo JWT token
