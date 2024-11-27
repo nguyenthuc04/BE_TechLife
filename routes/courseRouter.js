@@ -6,9 +6,9 @@ const Course = require('../Model/course');
 
 router.post('/createCourse', async (req, res) => {
     try {
-        const { name, quantity, imageUrl, price, duration, describe, userId, userName, userImageUrl } = req.body;
+        const { name, quantity, imageUrl, price, duration, describe, userId, userName, userImageUrl,startDate,endDate,type } = req.body;
 
-        if (!name || !quantity || !imageUrl || !price || !duration || !describe || !userId || !userName || !userImageUrl) {
+        if (!name || !quantity || !imageUrl || !price || !duration || !describe || !userId || !userName || !userImageUrl || !startDate || !endDate || !type) {
             return res.status(400).json({ success: false, message: 'All fields are required' });
         }
 
@@ -22,7 +22,10 @@ router.post('/createCourse', async (req, res) => {
             describe,
             userId,
             userName,
-            userImageUrl
+            userImageUrl,
+            startDate,
+            endDate,
+            type
         });
 
         await newCourse.save();
@@ -168,6 +171,29 @@ function isValidDateString(dateString) {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     return regex.test(dateString);
 }
+
+// Lấy thông tin khóa học theo tên
+router.get('/getCoursesByName/:name', async (req, res) => {
+    try {
+        const name = req.params.name;
+
+        if (!name || name.trim() === "") {
+            return res.status(400).json({ success: false, message: 'Invalid course name' });
+        }
+
+        // Tìm kiếm khóa học có tên khớp với từ khóa (không phân biệt chữ hoa, chữ thường)
+        const courses = await Course.find({ name: { $regex: name, $options: 'i' } });
+
+        if (!courses.length) {
+            return res.status(404).json({ success: false, message: 'No courses found with this name' });
+        }
+
+        res.status(200).json({ success: true,message : "HEhe",data : courses });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
 
 
 

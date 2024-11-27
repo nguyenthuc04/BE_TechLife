@@ -18,6 +18,9 @@ const courseSchema = new mongoose.Schema({
     userName: { type: String, required: true },
     userImageUrl: { type: String, required: true },
     user: { type:[userSchema], default: [] },
+    startDate: { type: String, required: true },
+    endDate: { type: String, required: true },
+    type: { type: String, required: true },
 });
 
 const Course = mongoose.model('Course', courseSchema);
