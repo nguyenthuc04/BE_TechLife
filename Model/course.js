@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
     id: { type: String, required: true },
     userName: { type: String, required: true },
     avatar: { type: String , required: true },
+    date: { type: String, required: true },
 });
 
 const courseSchema = new mongoose.Schema({
