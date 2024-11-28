@@ -14,6 +14,7 @@ const mongoose = require('mongoose');
 const Staff = require("../Model/staff");
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const moment = require('moment-timezone');
 
 const transporter = nodemailer.createTransport({
     service: 'Gmail',
@@ -348,9 +349,11 @@ router.put('/updateLastLogin/:id', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid userId' });
         }
 
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+
         const updatedUser = await Users.findByIdAndUpdate(
             userId,
-            { lastLog: Date.now() },
+            { lastLog: vietnamTime },
             { new: true, runValidators: true }
         );
 
