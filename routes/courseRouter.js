@@ -195,6 +195,58 @@ router.get('/getCoursesByName/:name', async (req, res) => {
     }
 });
 
+router.put('/registerCourse/:courseId', async (req, res) => {
+    try {
+        console.log("Request Body:", req.body); // Add this log to see the incoming data
+
+        const { courseId } = req.params;
+        const { id, userName, avatar, date } = req.body;
+
+        // Check if courseId is valid
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            return res.status(400).json({ success: false, message: 'Invalid courseId' });
+        }
+
+        // Check if required fields are provided in the request body
+        if (!id || !userName || !avatar || !date) {
+            return res.status(400).json({ success: false, message: 'Missing required fields: id, username, avatar, date' });
+        }
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ success: false, message: 'Course not found' });
+        }
+
+        // Check if the user is already registered for this course
+        const userAlreadyRegistered = course.user.some(user => user.id.toString() === id);
+        if (userAlreadyRegistered) {
+            return res.status(400).json({ success: false, message: 'User is already registered for this course' });
+        }
+
+        // If user is not already registered, add the user to the course's user list
+        await Course.findByIdAndUpdate(
+            courseId,
+            {
+                $push: {
+                    user: {
+                         id, // Save id as userId
+                        userName,
+                        avatar,
+                        date,
+                    },
+                },
+            },
+            { new: true, runValidators: true }
+        );
+
+        // Fetch the updated course and return it in the response
+        const updatedCourse = await Course.findById(courseId);
+        res.status(200).json({ success: true, message: 'User registered successfully', course: updatedCourse });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
 
 
 module.exports = router;
