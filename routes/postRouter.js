@@ -2,7 +2,7 @@ const express = require('express');
 const Posts = require('../Model/post');
 const mongoose = require('mongoose');
 const router = express.Router();
-
+const moment = require('moment-timezone');
 router.get('/getComments/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
@@ -125,11 +125,11 @@ router.post('/createPost', async (req, res) => {
                 message: 'Caption, userId, userName, and userImageUrl are required'
             });
         }
-
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         const newPost = new Posts({
             caption,
             imageUrl: imageUrl || [],
-            createdAt: new Date().toISOString(),
+            createdAt: vietnamTime,
             likesCount: 0,
             commentsCount: 0,
             userId,
