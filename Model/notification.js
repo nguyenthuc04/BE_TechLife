@@ -1,12 +1,17 @@
 const mongoose = require('mongoose');
 
-const Notifications = new mongoose.Schema({
-    name: { type: String, required: true }, // Name of the user
-    message: { type: String, required: true }, // Notification message
-    image: { type: String, required: true }, // URL of the image
-    time: { type: String, required: true }, // Time of the notification
-    idPostReel: { type: String, required: true }, // Associated post/reel ID
-    myID: { type: String, required: true }, // ID of the logged-in user
-    yourID: { type: String, required: true } // ID of the other user involved
+const notificationSchema = new mongoose.Schema({
+    contentId: { type: String, required: true },
+    userId: { type: String, required: true },
+    imgUser: { type: String, required: true },
+    nameUser: { type: String, required: true },
+    yourID: { type: String, required: true },
+    time: { type: String, required: true },
+    read: { type: Boolean, required: true },
+    processed: { type: Boolean, required: true },
+    type: { type: String, enum: ['like', 'comment', 'other'], required: true },
+    contentType: { type: String, enum: ['post', 'reel', 'other'], required: true },
+    createdAt: { type: Date, default: Date.now }
 });
-module.exports =  mongoose.model('notification', Notifications);
+
+module.exports = mongoose.model('Notification', notificationSchema);

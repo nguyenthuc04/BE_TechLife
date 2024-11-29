@@ -9,9 +9,9 @@ const userSchema = new mongoose.Schema({
     bio: { type: String },
     avatar: { type: String },
     accountType: { type: String, required: true },
-    following: { type: [String], default: [] }, // Chấp nhận mảng chuỗi
-    followers: { type: [String], default: [] }, // Chấp nhận mảng chuỗi
-    posts: { type: [String], default: [] },      // Chấp nhận mảng chuỗi
+    following: { type: [String], default: [] },
+    followers: { type: [String], default: [] },
+    posts: { type: [String], default: [] },
     lastLog : { type: Date, default: Date.now }
 });
 

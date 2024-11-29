@@ -3,6 +3,110 @@ const Posts = require('../Model/post');
 const mongoose = require('mongoose');
 const router = express.Router();
 const moment = require('moment-timezone');
+const Notification = require('../Model/notification');
+
+
+router.post('/likePost/:postId', async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const { userId, imgUser, nameUser, yourID } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(postId) || !userId || !imgUser || !nameUser || !yourID ) {
+            return res.status(400).json({ success: false, message: 'Invalid input data' });
+        }
+
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
+        }
+
+        const likeIndex = post.likes.indexOf(userId);
+        if (likeIndex === -1) {
+            post.likes.push(userId);
+            post.likesCount += 1;
+
+            // Create a new like notification
+            const likeNotification = new Notification({
+                contentId: postId,
+                userId,
+                imgUser,
+                nameUser,
+                yourID,
+                read: false,
+                processed: false,
+                time: new Date().toISOString(),
+                type: 'like',
+                contentType: 'post'
+            });
+            await likeNotification.save();
+
+            message = 'Post liked successfully';
+        } else {
+            post.likes.splice(likeIndex, 1);
+            post.likesCount -= 1;
+            message = 'Post unliked successfully';
+        }
+
+        await post.save();
+
+        res.status(200).json({ success: true, message, post });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+router.post('/addComment/:postId', async (req, res) => {
+    try {
+        const postId = req.params.postId;
+        const { userId, userName, userImageUrl, text, yourID } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(postId) || !userId || !userName || !userImageUrl || !text || !yourID ) {
+            return res.status(400).json({ success: false, message: 'Invalid input data' });
+        }
+
+        const post = await Posts.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: 'Post not found' });
+        }
+
+        const newComment = {
+            userId,
+            userName,
+            userImageUrl,
+            text,
+            createdAt: new Date()
+        };
+
+        post.comments.push(newComment);
+        post.commentsCount += 1;
+
+        // Create a new comment notification
+        const commentNotification = new Notification({
+            contentId: postId,
+            userId,
+            imgUser: userImageUrl,
+            nameUser: userName,
+            yourID,
+            read: false,
+            processed: false,
+            time: new Date().toISOString(),
+            type: 'comment',
+            contentType: 'post'
+        });
+        await commentNotification.save();
+
+        await post.save();
+
+        res.status(201).json({ success: true, message: 'Comment added successfully', post });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+
+
 router.get('/getComments/:postId', async (req, res) => {
     try {
         const postId = req.params.postId;
@@ -23,39 +127,6 @@ router.get('/getComments/:postId', async (req, res) => {
     }
 });
 
-router.post('/addComment/:postId', async (req, res) => {
-    try {
-        const postId = req.params.postId;
-        const {userId, userName, userImageUrl, text} = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(postId) || !userId || !userName || !userImageUrl || !text) {
-            return res.status(400).json({success: false, message: 'Invalid input data'});
-        }
-
-        const post = await Posts.findById(postId);
-        if (!post) {
-            return res.status(404).json({success: false, message: 'Post not found'});
-        }
-
-        const newComment = {
-            userId,
-            userName,
-            userImageUrl,
-            text,
-            createdAt: new Date()
-        };
-
-        post.comments.push(newComment);
-        post.commentsCount += 1;
-
-        await post.save();
-
-        res.status(201).json({success: true, message: 'Comment added successfully', post});
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
-    }
-});
 
 router.get('/getPost/:postId', async (req, res) => {
     try {
@@ -81,39 +152,9 @@ router.get('/getListPost', async (req, res) => {
     }
 );
 
-router.post('/likePost/:postId', async (req, res) => {
-    try {
-        const postId = req.params.postId;
-        const userId = req.body.userId;
 
-        if (!mongoose.Types.ObjectId.isValid(postId) || !mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({success: false, message: 'Invalid postId or userId'});
-        }
 
-        const post = await Posts.findById(postId);
-        if (!post) {
-            return res.status(404).json({success: false, message: 'Post not found'});
-        }
 
-        const likeIndex = post.likes.indexOf(userId);
-        if (likeIndex === -1) {
-            post.likes.push(userId);
-            post.likesCount += 1;
-            message = 'Post liked successfully';
-        } else {
-            post.likes.splice(likeIndex, 1);
-            post.likesCount -= 1;
-            message = 'Post unliked successfully';
-        }
-
-        await post.save();
-
-        res.status(200).json({success: true, message, post});
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
-    }
-});
 
 router.post('/createPost', async (req, res) => {
     try {

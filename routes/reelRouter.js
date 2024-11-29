@@ -2,8 +2,107 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const Reels = require('../Model/reel');
 const mongoose = require("mongoose");
-
+const Notification = require('../Model/notification');
 const router = express.Router();
+
+router.post('/addReelComment/:reelId', async (req, res) => {
+    try {
+        const reelId = req.params.reelId;
+        const { userId, userName, userImageUrl, text, yourID } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !userName || !userImageUrl || !text || !yourID ) {
+            return res.status(400).json({ success: false, message: 'Invalid input data' });
+        }
+
+        const reel = await Reels.findById(reelId);
+        if (!reel) {
+            return res.status(404).json({ success: false, message: 'Reel not found' });
+        }
+
+        const newComment = {
+            userId,
+            userName,
+            userImageUrl,
+            text,
+            createdAt: new Date()
+        };
+
+        reel.comments.push(newComment);
+        reel.commentsCount += 1;
+
+        // Create a new comment notification
+        const commentNotification = new Notification({
+            contentId: reelId,
+            userId,
+            imgUser: userImageUrl,
+            nameUser: userName,
+            yourID,
+            read: false,
+            processed: false,
+            time: new Date().toISOString(),
+            type: 'comment',
+            contentType : 'reel'
+        });
+        await commentNotification.save();
+
+        await reel.save();
+
+        res.status(201).json({ success: true, message: 'Comment added successfully', reel });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+router.post('/likeReel/:reelId', async (req, res) => {
+    try {
+        const reelId = req.params.reelId;
+        const { userId, imgUser, nameUser, yourID } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !imgUser || !nameUser || !yourID) {
+            return res.status(400).json({ success: false, message: 'Invalid input data' });
+        }
+
+        const reel = await Reels.findById(reelId);
+        if (!reel) {
+            return res.status(404).json({ success: false, message: 'Reel not found' });
+        }
+
+        const likeIndex = reel.likes.indexOf(userId);
+        if (likeIndex === -1) {
+            reel.likes.push(userId);
+            reel.likesCount += 1;
+
+            const likeNotification = new Notification({
+                contentId: reelId,
+                userId,
+                imgUser,
+                nameUser,
+                yourID,
+                read: false,
+                processed: false,
+                time: new Date().toISOString(),
+                type: 'like',
+                contentType : 'reel'
+            });
+            await likeNotification.save();
+
+            message = 'Reel liked successfully';
+        } else {
+            reel.likes.splice(likeIndex, 1);
+            reel.likesCount -= 1;
+            message = 'Reel unliked successfully';
+        }
+
+        await reel.save();
+
+        res.status(200).json({ success: true, message, reel });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
 
 router.get('/getReelComments/:reelId', async (req, res) => {
     try {
@@ -25,39 +124,6 @@ router.get('/getReelComments/:reelId', async (req, res) => {
     }
 });
 
-router.post('/addReelComment/:reelId', async (req, res) => {
-    try {
-        const reelId = req.params.reelId;
-        const { userId, userName, userImageUrl, text } = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !userName || !userImageUrl || !text) {
-            return res.status(400).json({ success: false, message: 'Invalid input data' });
-        }
-
-        const reel = await Reels.findById(reelId);
-        if (!reel) {
-            return res.status(404).json({ success: false, message: 'Post not found' });
-        }
-
-        const newComment = {
-            userId,
-            userName,
-            userImageUrl,
-            text,
-            createdAt: new Date()
-        };
-
-        reel.comments.push(newComment);
-        reel.commentsCount += 1;
-
-        await reel.save();
-
-        res.status(201).json({ success: true, message: 'Comment added successfully', reel });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
-    }
-});
 
 router.get('/getReel/:reelId', async (req, res) => {
     try {
@@ -83,39 +149,6 @@ router.get('/getListReel', async (req, res) => {
     }
 );
 
-router.post('/likeReel/:reelId', async (req, res) => {
-    try {
-        const reelId = req.params.reelId;
-        const userId = req.body.userId;
-
-        if (!mongoose.Types.ObjectId.isValid(reelId) || !mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({success: false, message: 'Invalid postId or userId'});
-        }
-
-        const reel = await Reels.findById(reelId);
-        if (!reel) {
-            return res.status(404).json({success: false, message: 'Post not found'});
-        }
-
-        const likeIndex = reel.likes.indexOf(userId);
-        if (likeIndex === -1) {
-            reel.likes.push(userId);
-            reel.likesCount += 1;
-            message = 'Post liked successfully';
-        } else {
-            reel.likes.splice(likeIndex, 1);
-            reel.likesCount -= 1;
-            message = 'Post unliked successfully';
-        }
-
-        await reel.save();
-
-        res.status(200).json({success: true, message, reel});
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
-    }
-});
 
 router.post('/createReel', async (req, res) => {
     try {

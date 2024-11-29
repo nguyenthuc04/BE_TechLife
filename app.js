@@ -9,11 +9,7 @@ const cors = require('cors');
 var usersRouter = require('./routes/userRouter');
 var courseRouter = require('./routes/courseRouter');
 var postRouter = require('./routes/postRouter');
-var postCommentsRouter = require('./routes/postCommentsRouter');
-var postLikesRouter = require('./routes/postLikesRouter');
 var reelRouter = require('./routes/reelRouter');
-var reelLikesRouter = require('./routes/reelLikesRouter');
-var reelCommentsRouter = require('./routes/reelCommentsRouter');
 var staffRouter = require('./routes/staffRouter');
 var reviewRouter = require('./routes/revenueRoutes');
 var notificationRoute = require('./routes/notificationRouter');
@@ -47,11 +43,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', usersRouter);
 app.use('/', courseRouter);
 app.use('/', postRouter);
-app.use('/', postLikesRouter);
-app.use('/', postCommentsRouter);
 app.use('/', reelRouter)
-app.use('/', reelLikesRouter)
-app.use('/', reelCommentsRouter)
 app.use('/', staffRouter)
 app.use('/', reviewRouter)
 app.use('/', notificationRoute);
