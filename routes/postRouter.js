@@ -19,7 +19,7 @@ router.post('/likePost/:postId', async (req, res) => {
         if (!post) {
             return res.status(404).json({ success: false, message: 'Post not found' });
         }
-
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         const likeIndex = post.likes.indexOf(userId);
         if (likeIndex === -1) {
             post.likes.push(userId);
@@ -34,7 +34,7 @@ router.post('/likePost/:postId', async (req, res) => {
                 yourID,
                 read: false,
                 processed: false,
-                time: new Date().toISOString(),
+                time: vietnamTime,
                 type: 'like',
                 contentType: 'post'
             });
@@ -80,7 +80,7 @@ router.post('/addComment/:postId', async (req, res) => {
 
         post.comments.push(newComment);
         post.commentsCount += 1;
-
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         // Create a new comment notification
         const commentNotification = new Notification({
             contentId: postId,
@@ -90,7 +90,7 @@ router.post('/addComment/:postId', async (req, res) => {
             yourID,
             read: false,
             processed: false,
-            time: new Date().toISOString(),
+            time: vietnamTime,
             type: 'comment',
             contentType: 'post'
         });

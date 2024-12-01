@@ -69,7 +69,25 @@ router.get('/getCoursesByUser/:userId', async (req, res) => {
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
+router.get('/checkUserInAnyCourse/:userId/:otherUserId', async (req, res) => {
+    try {
+        const { userId, otherUserId } = req.params;
 
+        if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(otherUserId)) {
+            return res.status(400).json({ success: false, message: 'Invalid userId or otherUserId' });
+        }
+
+        const courses = await Course.find({ userId: otherUserId });
+        const isUserInAnyCourse = courses.some(course =>
+            course.user.some(user => user.id.toString() === userId)
+        );
+
+        res.status(200).json({ success: true,isCheck: isUserInAnyCourse });
+    } catch (error) {
+        console.error('Error checking user in any course:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
 router.get('/getCourseById/:courseId', async (req, res) => {
     try {
         const courseId = req.params.courseId;
