@@ -15,6 +15,66 @@ const Staff = require("../Model/staff");
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const moment = require('moment-timezone');
+const Review = require('../Model/Review');
+
+
+router.post('/createReview', async (req, res) => {
+    try {
+        const {idMentor, rating, comment, userId} = req.body;
+
+        if (!idMentor || !rating || !comment || !userId) {
+            return res.status(400).json({success: false, message: 'All fields are required'});
+        }
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+        const newReview = new Review({
+            idMentor,
+            rating,
+            comment,
+            userId,
+            date:vietnamTime
+        });
+
+        await newReview.save();
+        res.status(201).json({success: true, message: 'Review created successfully'});
+    } catch (error) {
+        console.error('Error creating review:', error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
+
+router.get('/averageRating/:idMentor', async (req, res) => {
+    try {
+        const idMentor = req.params.idMentor;
+
+        const reviews = await Review.find({ idMentor });
+        if (!reviews || reviews.length === 0) {
+            return res.status(404).json({ success: false, message: 'No reviews found for this mentor' });
+        }
+
+        const totalRating = reviews.reduce((sum, review) => sum + parseFloat(review.rating), 0);
+        const averageRating = Math.round(totalRating / reviews.length);
+        res.status(200).json({ success: true, averageRating: averageRating });
+    } catch (error) {
+        console.error('Error calculating average rating:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
+router.get('/getReview/:idMentor', async (req, res) => {
+    try {
+        const idMentor = req.params.idMentor;
+
+        const reviews = await Review.find({idMentor}).populate('userId', 'name avatar');
+        if (!reviews || reviews.length === 0) {
+            return res.status(404).json({success: false, message: 'Reviews not found'});
+        }
+
+        res.status(200).json({success: true, reviews: reviews});
+    } catch (error) {
+        console.error('Error getting reviews:', error);
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
+    }
+});
 
 const transporter = nodemailer.createTransport({
     service: 'Gmail',
@@ -26,12 +86,12 @@ const transporter = nodemailer.createTransport({
 
 router.post('/sendEmail', async (req, res) => {
     try {
-        const { email } = req.body;
+        const {email} = req.body;
 
         // Find the user by email
-        const user = await Users.findOne({ account: email });
+        const user = await Users.findOne({account: email});
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({message: 'User not found'});
         }
 
         // Generate a 6-digit code
@@ -52,21 +112,21 @@ router.post('/sendEmail', async (req, res) => {
 
         await transporter.sendMail(mailOptions);
 
-        res.status(200).json({ message: 'Reset code sent to email',code: resetCode });
+        res.status(200).json({message: 'Reset code sent to email', code: resetCode});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'An error occurred while sending the reset code' });
+        res.status(500).json({message: 'An error occurred while sending the reset code'});
     }
 });
 
 router.post('/resetPassword', async (req, res) => {
     try {
-        const { account, newPassword } = req.body;
+        const {account, newPassword} = req.body;
 
         // Find the user by account
-        const user = await Users.findOne({ account });
+        const user = await Users.findOne({account});
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({message: 'User not found'});
         }
 
         // Hash the new password and save it
@@ -74,39 +134,40 @@ router.post('/resetPassword', async (req, res) => {
         user.password = hashedPassword;
         await user.save();
 
-        res.status(200).json({ success: true,message: 'Password reset successfully'});
+        res.status(200).json({success: true, message: 'Password reset successfully'});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'An error occurred while resetting the password' });
+        res.status(500).json({message: 'An error occurred while resetting the password'});
     }
 });
 
 
 router.post('/createPremium', async (req, res) => {
     try {
-        const { userId, userName, userImageUrl, imageUrl } = req.body;
+        const {userId, userName, userImageUrl, imageUrl} = req.body;
 
         if (!userId || !userName || !userImageUrl || !imageUrl) {
-            return res.status(400).json({ success: false, message: 'All fields are required' });
+            return res.status(400).json({success: false, message: 'All fields are required'});
         }
-
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         const newPremium = new Premium({
             userId,
             userName,
             userImageUrl,
-            imageUrl
+            imageUrl,
+            startDate: vietnamTime
         });
 
         await newPremium.save();
-        res.status(201).json({ success: true, message: 'Premium entry created successfully', premium: newPremium });
+        res.status(201).json({success: true, message: 'Premium entry created successfully', premium: newPremium});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
 router.post('/approveMentor/:id', async (req, res) => {
-    const { id } = req.params;
+    const {id} = req.params;
 
     try {
         // Tìm thông tin đăng ký trong bảng Premium
@@ -182,11 +243,10 @@ router.get('/getPremiumRequests', async (req, res) => {
 });
 
 
-
 // Xóa yêu cầu Premium
 router.delete('/deletePremiumRequest/:id', async (req, res) => {
     try {
-        const { id } = req.params;
+        const {id} = req.params;
         const result = await Premium.findByIdAndDelete(id);
 
         if (!result) {
@@ -210,7 +270,6 @@ router.delete('/deletePremiumRequest/:id', async (req, res) => {
 });
 
 
-
 router.get('/getListUsers', async (req, res) => {
         try {
             const users = await Users.find();
@@ -225,7 +284,7 @@ router.get('/getListUsers', async (req, res) => {
 router.get('/getListUsersByAccountType', async (req, res) => {
     try {
         // Lấy giá trị 'accountType' từ query parameters
-        const { accountType } = req.query; // Ví dụ: /getListUsers?accountType=admin
+        const {accountType} = req.query; // Ví dụ: /getListUsers?accountType=admin
 
         // Kiểm tra nếu có accountType được truyền vào
         let query = {};
@@ -239,7 +298,7 @@ router.get('/getListUsersByAccountType', async (req, res) => {
         res.json({users, count});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi lấy dữ liệu người dùng!' });
+        res.status(500).json({message: 'Lỗi khi lấy dữ liệu người dùng!'});
     }
 });
 
@@ -249,7 +308,7 @@ router.get('/getUser/:id', async (req, res) => {
         const userId = req.params.id;
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
         }
         res.json({
             user,
@@ -259,16 +318,16 @@ router.get('/getUser/:id', async (req, res) => {
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
+        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
     }
 });
 
 
 router.post('/createUser', async (req, res) => {
     try {
-        const {account, password, birthday, name,nickname, bio, avatar, accountType} = req.body;
+        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
 
-        if (!account || !password || !birthday || !name ||!nickname || !bio || !avatar || !accountType) {
+        if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType) {
             return res.status(400).json({message: 'Vui lòng cung cấp tất cả các trường bắt buộc!'});
         }
 
@@ -291,7 +350,7 @@ router.post('/createUser', async (req, res) => {
         const jwtToken = jwt.sign(
             {userId: users._id, account: users.account}, // Lưu `account` vào `userId` trong payload
             "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263", // Secret key
-            { expiresIn: '1h' }  // Token có hiệu lực trong 1 giờ
+            {expiresIn: '1h'}  // Token có hiệu lực trong 1 giờ
         );
 
         const serverClient = StreamChat.getInstance("zjttkfv87qhy", "b28qz8vgurspj533u829zef7frxvaxw623bw8vy6nhd3qj2p93gnyhqhwkwx6263");
@@ -301,12 +360,14 @@ router.post('/createUser', async (req, res) => {
         await users.save();
 
 
-        res.status(201).json({ message: 'Người dùng đã được tạo thành công!',jwtToken , user: {
+        res.status(201).json({
+            message: 'Người dùng đã được tạo thành công!', jwtToken, user: {
                 id: users._id,
                 name: users.name,
                 account: users.account,
                 avatar: users.avatar
-            }, streamToken : streamToken1 });
+            }, streamToken: streamToken1
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Lỗi khi tạo người dùng!'});
@@ -315,18 +376,18 @@ router.post('/createUser', async (req, res) => {
 
 router.post('/changepassword', async (req, res) => {
     try {
-        const { account, oldPassword, newPassword } = req.body;
+        const {account, oldPassword, newPassword} = req.body;
 
         // Find the user by account
-        const user = await Users.findOne({ account });
+        const user = await Users.findOne({account});
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({message: 'User not found'});
         }
 
         // Verify the old password
         const isMatch = await bcrypt.compare(oldPassword, user.password);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Incorrect old password' });
+            return res.status(401).json({message: 'Incorrect old password'});
         }
 
         // Hash the new password and save it
@@ -334,10 +395,10 @@ router.post('/changepassword', async (req, res) => {
         user.password = hashedPassword;
         await user.save();
 
-        res.json({ success: true });
+        res.json({success: true});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'An error occurred while changing the password!' });
+        res.status(500).json({message: 'An error occurred while changing the password!'});
     }
 });
 
@@ -346,25 +407,25 @@ router.put('/updateLastLogin/:id', async (req, res) => {
         const userId = req.params.id;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ success: false, message: 'Invalid userId' });
+            return res.status(400).json({success: false, message: 'Invalid userId'});
         }
 
         const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
 
         const updatedUser = await Users.findByIdAndUpdate(
             userId,
-            { lastLog: vietnamTime },
-            { new: true, runValidators: true }
+            {lastLog: vietnamTime},
+            {new: true, runValidators: true}
         );
 
         if (!updatedUser) {
-            return res.status(404).json({ success: false, message: 'User not found' });
+            return res.status(404).json({success: false, message: 'User not found'});
         }
 
-        res.status(200).json({ success: true, message: 'User last login time updated successfully', user: updatedUser });
+        res.status(200).json({success: true, message: 'User last login time updated successfully', user: updatedUser});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
@@ -408,7 +469,7 @@ router.post('/login', async (req, res) => {
                 avatar: user.avatar,
                 password: pass
             },
-            streamToken : streamToken
+            streamToken: streamToken
         });
         console.log("id user chat = ", user._id);
     } catch (error) {
@@ -419,12 +480,12 @@ router.post('/login', async (req, res) => {
 
 router.post('/login1', async (req, res) => {
     try {
-        const { account, password } = req.body;
+        const {account, password} = req.body;
 
         // Tìm người dùng theo tài khoản
-        const user = await Users.findOne({ account });
+        const user = await Users.findOne({account});
         if (!user) {
-            return res.status(404).json({ message: 'Tài khoản không tồn tại!' });
+            return res.status(404).json({message: 'Tài khoản không tồn tại!'});
         }
 
         // Kiểm tra mật khẩu
@@ -455,26 +516,25 @@ router.post('/login1', async (req, res) => {
                 avatar: user.avatar,
                 password: user.password
             },
-            streamToken : streamToken
+            streamToken: streamToken
         });
         console.log("id user chat = ", user._id);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi hệ thống khi đăng nhập!' });
+        res.status(500).json({message: 'Lỗi hệ thống khi đăng nhập!'});
     }
 });
-
 
 
 router.put('/updateUser/:id', async (req, res) => {
     try {
         const userId = req.params.id;
-        const { account, password, birthday, name, nickname, bio, avatar, accountType } = req.body;
+        const {account, password, birthday, name, nickname, bio, avatar, accountType} = req.body;
 
         // Find the user by ID
         const user = await Users.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng với ID cung cấp!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng với ID cung cấp!'});
         }
 
         // Update user fields
@@ -491,32 +551,32 @@ router.put('/updateUser/:id', async (req, res) => {
 
         // Save the updated user
         await user.save();
-        res.json({ message: 'Người dùng đã được cập nhật thành công!', user });
+        res.json({message: 'Người dùng đã được cập nhật thành công!', user});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
+        res.status(500).json({message: 'Lỗi khi cập nhật người dùng!'});
     }
 });
 
 router.post('/checkEmail', async (req, res) => {
     try {
-        const { account } = req.body;
+        const {account} = req.body;
 
         // Check if email is provided
         if (!account) {
-            return res.status(400).json({ message: 'Vui lòng cung cấp email!' });
+            return res.status(400).json({message: 'Vui lòng cung cấp email!'});
         }
 
         // Find the user by email
-        const user = await Users.findOne({ account });
+        const user = await Users.findOne({account});
         if (user) {
-            return res.status(200).json({ exists: true, message: 'Email đã tồn tại!',account });
+            return res.status(200).json({exists: true, message: 'Email đã tồn tại!', account});
         } else {
-            return res.status(200).json({ exists: false, message: 'Email chưa được sử dụng!',account  });
+            return res.status(200).json({exists: false, message: 'Email chưa được sử dụng!', account});
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi hệ thống khi kiểm tra email!' });
+        res.status(500).json({message: 'Lỗi hệ thống khi kiểm tra email!'});
     }
 });
 
@@ -618,34 +678,58 @@ router.post('/unfollow', async (req, res) => {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Lấy danh sách người dùng (hỗ trợ tìm kiếm và phân trang)
 router.get('/getListUserQT', async (req, res) => {
-    const { search, page = 1, limit = 10 } = req.query;
+    const {search, page = 1, limit = 10} = req.query;
     try {
-        const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+        const query = search ? {name: {$regex: search, $options: 'i'}} : {};
         const users = await Users.find(query)
             .skip((page - 1) * limit)
             .limit(parseInt(limit));
         const total = await Users.countDocuments(query);
 
-        res.json({ users, total });
+        res.json({users, total});
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({message: err.message});
     }
 });
 
 // Thêm người dùng mới
 router.post('/createUserQT', async (req, res) => {
-    const { account, password, birthday, name, nickname, bio, avatar, accountType,following, followers, posts } = req.body;
+    const {
+        account,
+        password,
+        birthday,
+        name,
+        nickname,
+        bio,
+        avatar,
+        accountType,
+        following,
+        followers,
+        posts
+    } = req.body;
 
     if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType || !following || !followers || !posts) {
-        return res.status(400).json({ message: 'Vui lòng cung cấp đầy đủ thông tin nhân viên!' });
+        return res.status(400).json({message: 'Vui lòng cung cấp đầy đủ thông tin nhân viên!'});
     }
 
     try {
-        const newUser = new Users({ account, password, birthday, name, nickname, bio, avatar, accountType,following, followers, posts });
+        const newUser = new Users({
+            account,
+            password,
+            birthday,
+            name,
+            nickname,
+            bio,
+            avatar,
+            accountType,
+            following,
+            followers,
+            posts
+        });
         await newUser.save();
-        res.status(201).json({ message: 'Nhân viên đã được tạo thành công!', user: newUser });
+        res.status(201).json({message: 'Nhân viên đã được tạo thành công!', user: newUser});
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi khi tạo nhân viên!' });
+        res.status(500).json({message: 'Lỗi khi tạo nhân viên!'});
     }
 });
 
@@ -654,11 +738,11 @@ router.get('/getUserQT/:id', async (req, res) => {
     try {
         const user = await Users.findById(req.params.id);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng!'});
         }
         res.status(200).json(user);
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi khi lấy thông tin người dùng!' });
+        res.status(500).json({message: 'Lỗi khi lấy thông tin người dùng!'});
     }
 });
 
@@ -667,7 +751,7 @@ router.put('/updateUserQT/:id', async (req, res) => {
     try {
         const user = await Users.findById(req.params.id);
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy người dùng!' });
+            return res.status(404).json({message: 'Không tìm thấy người dùng!'});
         }
 
         // Cập nhật các trường có trong body
@@ -678,9 +762,9 @@ router.put('/updateUserQT/:id', async (req, res) => {
         });
 
         await user.save();
-        res.status(200).json({ message: 'Người dùng đã được cập nhật thành công!', user });
+        res.status(200).json({message: 'Người dùng đã được cập nhật thành công!', user});
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi khi cập nhật người dùng!' });
+        res.status(500).json({message: 'Lỗi khi cập nhật người dùng!'});
     }
 });
 
@@ -688,9 +772,9 @@ router.put('/updateUserQT/:id', async (req, res) => {
 router.delete('deleteUserQT/:id', async (req, res) => {
     try {
         await Users.findByIdAndDelete(req.params.id);
-        res.json({ message: 'User deleted' });
+        res.json({message: 'User deleted'});
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({message: err.message});
     }
 });
 
@@ -699,11 +783,11 @@ router.get('/stats', async (req, res) => {
     try {
         const totalUsers = await Users.countDocuments();
         const accountTypes = await Users.aggregate([
-            { $group: { _id: '$accountType', count: { $sum: 1 } } },
+            {$group: {_id: '$accountType', count: {$sum: 1}}},
         ]);
-        res.json({ totalUsers, accountTypes });
+        res.json({totalUsers, accountTypes});
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        res.status(500).json({message: err.message});
     }
 });
 
@@ -713,7 +797,7 @@ router.post('/loginweb', async (req, res) => {
         console.log("Dữ liệu nhận được từ client:", req.body.account);
 
         // Kiểm tra tài khoản
-        const user = await Users.findOne({account : account});
+        const user = await Users.findOne({account: account});
         if (!user) {
             return res.status(404).json({message: 'Tài khoản không tồn tại!'});
         }
@@ -742,7 +826,7 @@ router.post('/loginweb', async (req, res) => {
                 name: user.name,
                 account: user.account,
                 avatar: user.avatar,
-                accountType : user.accountType
+                accountType: user.accountType
             }
         });
 
@@ -754,25 +838,25 @@ router.post('/loginweb', async (req, res) => {
 
 router.post('/changepassword', async (req, res) => {
     try {
-        const { oldPassword, newPassword } = req.body;
+        const {oldPassword, newPassword} = req.body;
 
         // Xác thực token từ cookie hoặc header
         const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
         if (!token) {
-            return res.status(401).json({ message: 'Bạn chưa đăng nhập!' });
+            return res.status(401).json({message: 'Bạn chưa đăng nhập!'});
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await Users.findById(decoded.userId);
 
         if (!user) {
-            return res.status(404).json({ message: 'Không tìm thấy tài khoản!' });
+            return res.status(404).json({message: 'Không tìm thấy tài khoản!'});
         }
 
         // Xác thực mật khẩu cũ
         const isMatch = await bcrypt.compare(oldPassword, user.password);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Mật khẩu cũ không đúng!' });
+            return res.status(401).json({message: 'Mật khẩu cũ không đúng!'});
         }
 
         // Hash mật khẩu mới và lưu lại
@@ -780,10 +864,10 @@ router.post('/changepassword', async (req, res) => {
         user.password = hashedPassword;
         await user.save();
 
-        res.json({ message: 'Đổi mật khẩu thành công!' });
+        res.json({message: 'Đổi mật khẩu thành công!'});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Lỗi hệ thống khi đổi mật khẩu!' });
+        res.status(500).json({message: 'Lỗi hệ thống khi đổi mật khẩu!'});
     }
 });
 

@@ -4,7 +4,7 @@ const Reels = require('../Model/reel');
 const mongoose = require("mongoose");
 const Notification = require('../Model/notification');
 const router = express.Router();
-
+const moment = require('moment-timezone');
 router.post('/addReelComment/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
@@ -29,7 +29,7 @@ router.post('/addReelComment/:reelId', async (req, res) => {
 
         reel.comments.push(newComment);
         reel.commentsCount += 1;
-
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         // Create a new comment notification
         const commentNotification = new Notification({
             contentId: reelId,
@@ -39,7 +39,7 @@ router.post('/addReelComment/:reelId', async (req, res) => {
             yourID,
             read: false,
             processed: false,
-            time: new Date().toISOString(),
+            time: vietnamTime,
             type: 'comment',
             contentType : 'reel'
         });
@@ -67,7 +67,7 @@ router.post('/likeReel/:reelId', async (req, res) => {
         if (!reel) {
             return res.status(404).json({ success: false, message: 'Reel not found' });
         }
-
+        const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         const likeIndex = reel.likes.indexOf(userId);
         if (likeIndex === -1) {
             reel.likes.push(userId);
@@ -81,7 +81,7 @@ router.post('/likeReel/:reelId', async (req, res) => {
                 yourID,
                 read: false,
                 processed: false,
-                time: new Date().toISOString(),
+                time: vietnamTime,
                 type: 'like',
                 contentType : 'reel'
             });
