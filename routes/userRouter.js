@@ -788,6 +788,104 @@ router.post('/changepassword', async (req, res) => {
 });
 
 
+function getDateRange(filterType, customStartDate, customEndDate) {
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (filterType) {
+        case "day": // Trong ngày
+            startDate = new Date(now.setHours(0, 0, 0, 0));
+            endDate = new Date(now.setHours(23, 59, 59, 999));
+            break;
+        case "week": // Trong tuần
+            const weekDay = now.getDay();
+            const mondayOffset = weekDay === 0 ? -6 : 1 - weekDay;
+
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() + mondayOffset);
+            startDate.setHours(0, 0, 0, 0);
+
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case "month": // Trong tháng
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            break;
+        case "custom": // Tuỳ chỉnh
+            startDate = new Date(customStartDate);
+            endDate = new Date(customEndDate);
+            // Điều chỉnh endDate để bao gồm toàn bộ ngày cuối (23:59:59.999)
+            startDate.setHours(0, 0, 0, 0)
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        default:
+            throw new Error("Invalid filter type");
+    }
+
+    // Điều chỉnh múi giờ +7
+    startDate = new Date(startDate.getTime() + 7 * 60 * 60 * 1000);
+    endDate = new Date(endDate.getTime() + 7 * 60 * 60 * 1000);
+
+    return { startDate, endDate };
+}
+
+
+
+
+router.get("/getUserByLastLog", async (req, res) => {
+    const { filterType, startDate, endDate, accountType } = req.query;
+
+    try {
+        // Xác định khoảng thời gian dựa vào filterType
+        const { startDate: start, endDate: end } = getDateRange(filterType, startDate, endDate);
+
+        console.log("Start date:", start); // Log ngày bắt đầu
+        console.log("End date:", end); // Log ngày kết thúc
+
+        // Tạo danh sách các ngày trong khoảng từ start đến end
+        const dates = [];
+        let currentDate = new Date(start);
+        while (currentDate <= end) {
+            dates.push(new Date(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1); // Tăng ngày lên 1
+        }
+
+        // Truy vấn tất cả người dùng trong khoảng thời gian
+        const query = {
+            lastLog: { $gte: start, $lte: end }
+        };
+
+        // Thêm điều kiện accountType nếu có
+        if (accountType) {
+            query.accountType = accountType;
+        }
+
+        const users = await Users.find(query);
+
+        // Gom nhóm người dùng theo từng ngày
+        const result = dates.map(date => {
+            const formattedDate = date.toISOString().split("T")[0]; // Format YYYY-MM-DD
+            const usersForDate = users.filter(user => {
+                const logDate = new Date(user.lastLog).toISOString().split("T")[0];
+                return logDate === formattedDate;
+            });
+            return {
+                date: formattedDate,
+                users: usersForDate
+            };
+        });
+
+        res.status(200).json({ success: true, data: result });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+});
+
+
+
+
 
 
 module.exports = router;
