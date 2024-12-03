@@ -11,7 +11,7 @@ const courseSchema = new mongoose.Schema({
     name: { type: String, required: true },
     quantity: { type: String, required: true },
     imageUrl: { type: String, required: true },
-    date: { type: String, required: true },
+    date: { type: Date, default: Date.now },
     price: { type: String, required: true },
     duration: { type: String, required: true },
     describe: { type: String, required: true },
