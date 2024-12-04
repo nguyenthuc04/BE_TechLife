@@ -355,7 +355,106 @@ router.get("/getCoursesByStartDate", async (req, res) => {
     }
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+const AcceptedCourse = require('../Model/acceptedCourse');
+// API chấp nhận bài viết
+router.put('/coursesQT/:id/accept', async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({error: 'Không tìm thấy khoá học'});
+        }
 
+        // Kiểm tra xem khoá học đã được chấp nhận chưa
+        const existingAcceptedCourse = await AcceptedCourse.findOne({courseId});
+        if (existingAcceptedCourse) {
+            return res.status(400).json({error: 'Khoá học đã được chấp nhận trước đó'});
+        }
+
+        // Tạo một bản ghi mới trong collection AcceptedCourse
+        const acceptedCourse = new AcceptedCourse({courseId});
+        await acceptedCourse.save();
+
+        res.status(200).json({message: 'Chấp nhận khoá học thành công', post});
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi chấp nhận khoá học'});
+    }
+});
+
+// Cập nhật API lấy danh sách khoá học để chỉ trả về các khoá học chưa được chấp nhận
+router.get('/coursesQT', async (req, res) => {
+    try {
+        const acceptedCourseIds = await AcceptedCourse.find().distinct('courseId');
+        const courses = await Course.find({_id: {$nin: acceptedCourseIds}});
+
+        const processedCourses = courses.map(course => {
+            if (Array.isArray(course.imageUrl) && course.imageUrl.length > 0) {
+                course.imageUrl = course.imageUrl.map(url => url);
+            } else {
+                course.imageUrl = [];
+            }
+            return post;
+        });
+
+        res.status(200).json(processedCourses);
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi lấy danh sách khoá học'});
+    }
+});
+
+router.get('/coursesQT/accepted', async (req, res) => {
+    try {
+        const acceptedCourses = await AcceptedCourse.find().populate('courseId');
+        const processedCourses = acceptedCourses.map(acceptedCourse => {
+            const course = acceptedCourse.courseId;
+            return {
+                ...course.toObject(),
+                acceptedAt: acceptedCourse.acceptedAt
+            };
+        });
+        res.status(200).json(processedCourses);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách khoá học đã chấp nhận:', error);
+        res.status(500).json({error: 'Lỗi khi lấy danh sách khoá học đã chấp nhận'});
+    }
+});
+
+router.put('/coursesQT/:id/unarchive', async (req, res) => {
+    try {
+        const courseId = req.params.id;
+
+        // Xóa khoá học khỏi danh sách đã chấp nhận
+        await AcceptedCourse.findOneAndDelete({courseId: courseId});
+
+        // Lấy thông tin bài viết
+        const course = await Course.findById(courseId);
+
+        if (!course) {
+            return res.status(404).json({success: false, message: 'Không tìm thấy khoá học'});
+        }
+
+        res.status(200).json({success: true, message: 'Khoá học đã được hủy lưu trữ', course: course});
+    } catch (error) {
+        console.error('Lỗi khi hủy lưu trữ khoá học:', error);
+        res.status(500).json({success: false, error: 'Lỗi khi hủy lưu trữ khoá học'});
+    }
+});
+
+// API xóa bài viết
+router.delete('/coursesQT/:id', async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const deletedCourse= await Course.findByIdAndDelete(courseId);
+        if (!deletedCourse) {
+            return res.status(404).json({error: 'Không tìm thấy khoá học'});
+        }
+        res.status(200).json({message: 'Xóa khoá học thành công'});
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi xóa khoá học'});
+    }
+});
+/////////////////////////////////
 
 
 module.exports = router;
