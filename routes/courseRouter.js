@@ -266,15 +266,6 @@ router.put('/registerCourse/:courseId', async (req, res) => {
     }
 });
 
-// Hàm chuyển đổi định dạng ngày từ DD-MM-YYYY thành YYYY-MM-DD
-function convertToDate(dateString) {
-    const parts = dateString.split('-'); // Tách chuỗi theo dấu '-'
-    const day = parts[0];
-    const month = parts[1] - 1; // Tháng trong JavaScript bắt đầu từ 0
-    const year = parts[2];
-
-    return new Date(year, month, day);
-}
 
 function getDateRange(filterType, customStartDate, customEndDate) {
     const now = new Date();
@@ -303,8 +294,8 @@ function getDateRange(filterType, customStartDate, customEndDate) {
             endDate.setHours(23, 59, 59, 999);
             break;
         case "custom": // Tuỳ chỉnh
-            startDate = convertToDate(customStartDate); // Sử dụng hàm convertToDate
-            endDate = convertToDate(customEndDate); // Sử dụng hàm convertToDate
+            startDate = new Date(customStartDate); // Sử dụng hàm convertToDate
+            endDate = new Date(customEndDate); // Sử dụng hàm convertToDate
             // Điều chỉnh endDate để bao gồm toàn bộ ngày cuối (23:59:59.999)
             startDate.setHours(0, 0, 0, 0);
             endDate.setHours(23, 59, 59, 999);

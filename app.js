@@ -11,8 +11,9 @@ var courseRouter = require('./routes/courseRouter');
 var postRouter = require('./routes/postRouter');
 var reelRouter = require('./routes/reelRouter');
 var staffRouter = require('./routes/staffRouter');
-var reviewRouter = require('./routes/revenueRoutes');
+var revenueRouter = require('./routes/revenueRouter');
 var notificationRoute = require('./routes/notificationRouter');
+
 
 
 var app = express();
@@ -45,8 +46,8 @@ app.use('/', courseRouter);
 app.use('/', postRouter);
 app.use('/', reelRouter)
 app.use('/', staffRouter)
-app.use('/', reviewRouter)
 app.use('/', notificationRoute);
+app.use('/', revenueRouter)
 
 
 // catch 404 and forward to error handler
