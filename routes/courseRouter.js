@@ -356,31 +356,39 @@ router.get("/getCoursesByStartDate", async (req, res) => {
 });
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const AcceptedCourse = require('../Model/acceptedCourse');
+const AcceptedCourse = require('../Model/AcceptedCourse');
 // API chấp nhận bài viết
 router.put('/coursesQT/:id/accept', async (req, res) => {
     try {
         const courseId = req.params.id;
+        // Kiểm tra xem courseId có hợp lệ không
+        if (!courseId) {
+            return res.status(400).json({ error: 'ID khoá học không hợp lệ' });
+        }
+
         const course = await Course.findById(courseId);
         if (!course) {
-            return res.status(404).json({error: 'Không tìm thấy khoá học'});
+            return res.status(404).json({ error: 'Không tìm thấy khoá học' });
         }
 
         // Kiểm tra xem khoá học đã được chấp nhận chưa
-        const existingAcceptedCourse = await AcceptedCourse.findOne({courseId});
+        const existingAcceptedCourse = await AcceptedCourse.findOne({ courseId });
         if (existingAcceptedCourse) {
-            return res.status(400).json({error: 'Khoá học đã được chấp nhận trước đó'});
+            return res.status(400).json({ error: 'Khoá học đã được chấp nhận trước đó' });
         }
 
         // Tạo một bản ghi mới trong collection AcceptedCourse
-        const acceptedCourse = new AcceptedCourse({courseId});
+        const acceptedCourse = new AcceptedCourse({ courseId });
         await acceptedCourse.save();
 
-        res.status(200).json({message: 'Chấp nhận khoá học thành công', post});
+        // Trả về thông báo thành công cùng với thông tin bản ghi đã tạo
+        res.status(200).json({ message: 'Chấp nhận khoá học thành công', acceptedCourse });
     } catch (error) {
-        res.status(500).json({error: 'Lỗi khi chấp nhận khoá học'});
+        console.error('Lỗi khi chấp nhận khoá học:', error);
+        res.status(500).json({ error: 'Lỗi khi chấp nhận khoá học' });
     }
 });
+
 
 // Cập nhật API lấy danh sách khoá học để chỉ trả về các khoá học chưa được chấp nhận
 router.get('/coursesQT', async (req, res) => {
@@ -394,7 +402,7 @@ router.get('/coursesQT', async (req, res) => {
             } else {
                 course.imageUrl = [];
             }
-            return post;
+            return course;
         });
 
         res.status(200).json(processedCourses);
@@ -406,19 +414,32 @@ router.get('/coursesQT', async (req, res) => {
 router.get('/coursesQT/accepted', async (req, res) => {
     try {
         const acceptedCourses = await AcceptedCourse.find().populate('courseId');
+
+        // Ghi log để kiểm tra dữ liệu
+        console.log('Danh sách các khóa học đã chấp nhận:', acceptedCourses);
+
         const processedCourses = acceptedCourses.map(acceptedCourse => {
             const course = acceptedCourse.courseId;
+
+            if (!course) {
+                console.error(`Không tìm thấy khóa học cho acceptedCourse ID: ${acceptedCourse._id}`);
+                return null; // Hoặc xử lý theo cách khác nếu cần
+            }
+
             return {
                 ...course.toObject(),
                 acceptedAt: acceptedCourse.acceptedAt
             };
-        });
+        }).filter(course => course !== null);
+
         res.status(200).json(processedCourses);
     } catch (error) {
         console.error('Lỗi khi lấy danh sách khoá học đã chấp nhận:', error);
-        res.status(500).json({error: 'Lỗi khi lấy danh sách khoá học đã chấp nhận'});
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách khoá học đã chấp nhận' });
     }
 });
+
+
 
 router.put('/coursesQT/:id/unarchive', async (req, res) => {
     try {
