@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const notificationSchema = new mongoose.Schema({
+const notificationSchema     = new mongoose.Schema({
     contentId: { type: String, required: true },
     userId: { type: String, required: true },
     imgUser: { type: String, required: true },
