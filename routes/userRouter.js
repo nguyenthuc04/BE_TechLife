@@ -78,7 +78,7 @@ router.get('/getReview/:idMentor', async (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const AcceptedReview = require('../Model/AcceptedReview');
-// API chấp nhận bài viết
+// API chấp nhận đánh giá
 router.put('/reviewsQT/:id/accept', async (req, res) => {
     try {
         const reviewId = req.params.id;
@@ -94,7 +94,7 @@ router.put('/reviewsQT/:id/accept', async (req, res) => {
 
         // Kiểm tra xem đánh giá đã được chấp nhận chưa
         const existingAcceptedReview = await AcceptedReview.findOne({reviewId});
-        if (existingAcceptedCourse) {
+        if (existingAcceptedReview) {
             return res.status(400).json({error: 'Khoá học đã được chấp nhận trước đó'});
         }
 
