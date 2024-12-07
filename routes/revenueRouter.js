@@ -4,7 +4,7 @@ const router = express.Router();
 
 router.post('/createRevenue', async (req, res) => {
     try {
-        const { idUser, type, price, date, idStaff } = req.body;
+        const { idUser, type, price, idStaff } = req.body;
 
         if (!idUser || !type || !price || !idStaff) {
             return res.status(400).json({ success: false, message: 'All fields are required' });
