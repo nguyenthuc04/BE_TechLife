@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Users = require('../Model/user');
+const UserPremium = require('../Model/userPremium');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
@@ -286,8 +287,104 @@ router.post('/createPremium', async (req, res) => {
     }
 });
 
+router.post('/createUserPremium', async (req, res) => {
+    const { userId, userName, startDate, endDate } = req.body;
+
+    try {
+        const newUserPremium = new UserPremium({
+            userId,
+            userName,
+            startDate,
+            endDate,
+        });
+
+        const result = await newUserPremium.save();
+
+        return res.status(201).json({
+            success: true,
+            message: 'Thông tin UserPremium đã được tạo thành công',
+            data: result,
+        });
+    } catch (error) {
+        console.error('Lỗi khi tạo UserPremium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi tạo UserPremium',
+        });
+    }
+});
+
+router.post('/updateOrCreateUserPremium', async (req, res) => {
+    const { userId, userName, startDate, endDate } = req.body;
+
+    try {
+        // Kiểm tra xem userId đã tồn tại trong bảng UserPremium chưa
+        let userPremium = await UserPremium.findOne({ userId });
+
+        if (userPremium) {
+            // Nếu đã tồn tại, cập nhật endDate mới
+            userPremium.endDate = endDate;
+            await userPremium.save();
+            return res.status(200).json({
+                success: true,
+                message: 'UserPremium đã được cập nhật.',
+                data: userPremium
+            });
+        } else {
+            // Nếu không tồn tại, tạo mới
+            userPremium = new UserPremium({
+                userId,
+                userName,
+                startDate,
+                endDate
+            });
+            await userPremium.save();
+            return res.status(201).json({
+                success: true,
+                message: 'UserPremium đã được tạo mới.',
+                data: userPremium
+            });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi xử lý UserPremium.',
+            error: error.message
+        });
+    }
+});
+
+router.get('/getUserPremium/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        // Tìm thông tin UserPremium theo userId
+        const userPremium = await UserPremium.findOne({ userId });
+
+        if (userPremium) {
+            return res.status(200).json({
+                success: true,
+                message: 'UserPremium được tìm thấy',
+                data: userPremium,
+            });
+        } else {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy thông tin UserPremium',
+            });
+        }
+    } catch (error) {
+        console.error('Lỗi khi gọi GET /getUserPremium/:userId', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi trong quá trình tìm UserPremium',
+        });
+    }
+});
+
 router.post('/approveMentor/:id', async (req, res) => {
-    const {id} = req.params;
+    const { id } = req.params;
 
     try {
         // Tìm thông tin đăng ký trong bảng Premium
@@ -299,7 +396,7 @@ router.post('/approveMentor/:id', async (req, res) => {
             });
         }
 
-        // Cập nhật accountType của user
+        // Tìm user liên quan
         const user = await Users.findById(premiumRequest.userId);
         if (!user) {
             return res.status(404).json({
@@ -308,14 +405,33 @@ router.post('/approveMentor/:id', async (req, res) => {
             });
         }
 
-        // Kiểm tra xem người dùng đã là mentor chưa
+        // Nếu người dùng đã là mentor
         if (user.accountType === 'mentor') {
-            return res.status(400).json({
-                success: false,
-                message: 'Người dùng đã là mentor rồi, không cần chuyển đổi'
-            });
+            // Kiểm tra trong bảng UserPremium
+            const userPremium = await UserPremium.findOne({ userId: user._id });
+
+            if (userPremium) {
+                // Cập nhật endDate thêm 30 ngày
+                const newEndDate = new Date(userPremium.endDate);
+                newEndDate.setDate(newEndDate.getDate() + 30);
+
+                userPremium.endDate = newEndDate;
+                await userPremium.save();
+
+                return res.status(200).json({
+                    success: true,
+                    message: 'Thời gian premium của mentor đã được gia hạn thêm 30 ngày',
+                    data: userPremium
+                });
+            } else {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy thông tin UserPremium cho người dùng này'
+                });
+            }
         }
 
+        // Nếu người dùng là mentee, chuyển đổi thành mentor
         if (user.accountType !== 'mentee') {
             return res.status(400).json({
                 success: false,
@@ -323,20 +439,33 @@ router.post('/approveMentor/:id', async (req, res) => {
             });
         }
 
-        // Chuyển đổi tài khoản thành mentor
         user.accountType = 'mentor';
         await user.save();
+
+        // Tạo bản ghi mới trong bảng UserPremium
+        const startDate = new Date();
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 30);
+
+        const newUserPremium = new UserPremium({
+            userId: user._id,
+            userName: user.name,
+            startDate,
+            endDate
+        });
+        await newUserPremium.save();
 
         // Xóa yêu cầu trong bảng Premium
         await Premium.findByIdAndDelete(id);
 
         return res.status(200).json({
             success: true,
-            message: 'Người dùng đã được chuyển đổi thành mentor thành công',
+            message: 'Người dùng đã được chuyển đổi thành mentor và thêm vào UserPremium',
             data: {
-                user: user,
-                premiumRequest: premiumRequest
-            },
+                user,
+                premiumRequest: premiumRequest,
+                userPremium: newUserPremium
+            }
         });
     } catch (error) {
         console.error('Lỗi khi duyệt mentor:', error);
@@ -346,6 +475,8 @@ router.post('/approveMentor/:id', async (req, res) => {
         });
     }
 });
+
+
 router.get('/getPremiumRequests', async (req, res) => {
     try {
         const premiumRequests = await Premium.find();
