@@ -8,15 +8,15 @@ const moment = require('moment-timezone');
 router.post('/addReelComment/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
-        const { userId, userName, userImageUrl, text, yourID } = req.body;
+        const {userId, userName, userImageUrl, text, yourID} = req.body;
 
-        if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !userName || !userImageUrl || !text || !yourID ) {
-            return res.status(400).json({ success: false, message: 'Invalid input data' });
+        if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !userName || !userImageUrl || !text || !yourID) {
+            return res.status(400).json({success: false, message: 'Invalid input data'});
         }
 
         const reel = await Reels.findById(reelId);
         if (!reel) {
-            return res.status(404).json({ success: false, message: 'Reel not found' });
+            return res.status(404).json({success: false, message: 'Reel not found'});
         }
 
         const newComment = {
@@ -41,31 +41,31 @@ router.post('/addReelComment/:reelId', async (req, res) => {
             processed: false,
             time: vietnamTime,
             type: 'comment',
-            contentType : 'reel'
+            contentType: 'reel'
         });
         await commentNotification.save();
 
         await reel.save();
 
-        res.status(201).json({ success: true, message: 'Comment added successfully', reel });
+        res.status(201).json({success: true, message: 'Comment added successfully', reel});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
 router.post('/likeReel/:reelId', async (req, res) => {
     try {
         const reelId = req.params.reelId;
-        const { userId, imgUser, nameUser, yourID } = req.body;
+        const {userId, imgUser, nameUser, yourID} = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(reelId) || !userId || !imgUser || !nameUser || !yourID) {
-            return res.status(400).json({ success: false, message: 'Invalid input data' });
+            return res.status(400).json({success: false, message: 'Invalid input data'});
         }
 
         const reel = await Reels.findById(reelId);
         if (!reel) {
-            return res.status(404).json({ success: false, message: 'Reel not found' });
+            return res.status(404).json({success: false, message: 'Reel not found'});
         }
         const vietnamTime = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
         const likeIndex = reel.likes.indexOf(userId);
@@ -83,7 +83,7 @@ router.post('/likeReel/:reelId', async (req, res) => {
                 processed: false,
                 time: vietnamTime,
                 type: 'like',
-                contentType : 'reel'
+                contentType: 'reel'
             });
             await likeNotification.save();
 
@@ -96,10 +96,10 @@ router.post('/likeReel/:reelId', async (req, res) => {
 
         await reel.save();
 
-        res.status(200).json({ success: true, message, reel });
+        res.status(200).json({success: true, message, reel});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
@@ -109,46 +109,63 @@ router.get('/getReelComments/:reelId', async (req, res) => {
         const reelId = req.params.reelId;
 
         if (!mongoose.Types.ObjectId.isValid(reelId)) {
-            return res.status(400).json({ success: false, message: 'Invalid postId' });
+            return res.status(400).json({success: false, message: 'Invalid postId'});
         }
 
-        const reel= await Reels.findById(reelId);
+        const reel = await Reels.findById(reelId);
         if (!reel) {
-            return res.status(404).json({ success: false, message: 'Post not found' });
+            return res.status(404).json({success: false, message: 'Post not found'});
         }
 
-        res.status(200).json({ success: true, comments: reel.comments });
+        res.status(200).json({success: true, comments: reel.comments});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
 
 router.get('/getReel/:reelId', async (req, res) => {
     try {
-        const postId = req.params.postId;
+        const postId = req.params.reelId;
         const post = await Reels.findById(postId);
         if (!post) {
             return res.status(404).json({success: false, message: 'Post not found'});
         }
-        res.json(post);
+        res.status(200).json({success: true, reels: post});
     } catch (error) {
         console.error(error);
         res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
-router.get('/getListReel', async (req, res) => {
-        try {
-            const posts = await Reels.find();
-            res.json(posts);
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({message: 'Lỗi khi lấy dữ liệu người dùng!'});
-        }
-    }
-);
+// router.get('/getListReel', async (req, res) => {
+//         try {
+//             const posts = await Reels.find();
+//             res.json(posts);
+//         } catch (error) {
+//             console.error(error);
+//             res.status(500).json({message: 'Lỗi khi lấy dữ liệu người dùng!'});
+//         }
+//     }
+// );
 
+router.get('/getListReel', async (req, res) => {
+    try {
+        const {page = 1, limit = 10} = req.query;
+        const reels = await Reels.find()
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+        const total = await Reels.countDocuments();
+        res.json({
+            reels,
+            totalPages: Math.ceil(total / limit),
+            currentPage: parseInt(page)
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({message: 'Error fetching reels!'});
+    }
+});
 
 router.post('/createReel', async (req, res) => {
     try {
@@ -187,18 +204,18 @@ router.get('/getReelsByUser/:userId', async (req, res) => {
         const userId = req.params.userId;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ success: false, message: 'Invalid userId' });
+            return res.status(400).json({success: false, message: 'Invalid userId'});
         }
 
-        const reels = await Reels.find({ userId });
+        const reels = await Reels.find({userId});
         if (!reels.length) {
-            return res.status(404).json({ success: false, message: 'No reels found for this user' });
+            return res.status(404).json({success: false, message: 'No reels found for this user'});
         }
 
-        res.status(200).json({ success: true, reels });
+        res.status(200).json({success: true, reels});
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
@@ -210,22 +227,22 @@ router.put('/reelsQT/:id/accept', async (req, res) => {
         const reelId = req.params.id;
         const reel = await Reels.findById(reelId);
         if (!reel) {
-            return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+            return res.status(404).json({error: 'Không tìm thấy bài viết'});
         }
 
         // Kiểm tra xem bài viết đã được chấp nhận chưa
-        const existingAcceptedReel = await AcceptedReel.findOne({ reelId });
+        const existingAcceptedReel = await AcceptedReel.findOne({reelId});
         if (existingAcceptedReel) {
-            return res.status(400).json({ error: 'Bài viết đã được chấp nhận trước đó' });
+            return res.status(400).json({error: 'Bài viết đã được chấp nhận trước đó'});
         }
 
         // Tạo một bản ghi mới trong collection AcceptedPost
-        const acceptedReel = new AcceptedReel({ reelId });
+        const acceptedReel = new AcceptedReel({reelId});
         await acceptedReel.save();
 
-        res.status(200).json({ message: 'Chấp nhận bài viết thành công', reel });
+        res.status(200).json({message: 'Chấp nhận bài viết thành công', reel});
     } catch (error) {
-        res.status(500).json({ error: 'Lỗi khi chấp nhận bài viết' });
+        res.status(500).json({error: 'Lỗi khi chấp nhận bài viết'});
     }
 });
 
@@ -233,7 +250,7 @@ router.put('/reelsQT/:id/accept', async (req, res) => {
 router.get('/reelsQT', async (req, res) => {
     try {
         const acceptedReelIds = await AcceptedReel.find().distinct('reelId');
-        const reels = await Reels.find({ _id: { $nin: acceptedReelIds } });
+        const reels = await Reels.find({_id: {$nin: acceptedReelIds}});
 
         const processedReels = reels.map(reel => {
             if (Array.isArray(reel.videoUrl) && reel.videoUrl.length > 0) {
@@ -246,7 +263,7 @@ router.get('/reelsQT', async (req, res) => {
 
         res.status(200).json(processedReels);
     } catch (error) {
-        res.status(500).json({ error: 'Lỗi khi lấy danh sách reels' });
+        res.status(500).json({error: 'Lỗi khi lấy danh sách reels'});
     }
 });
 
@@ -263,7 +280,7 @@ router.get('/reelsQT/accepted', async (req, res) => {
         res.status(200).json(processedReels);
     } catch (error) {
         console.error('Lỗi khi lấy danh sách reels đã chấp nhận:', error);
-        res.status(500).json({ error: 'Lỗi khi lấy danh sách reels đã chấp nhận' });
+        res.status(500).json({error: 'Lỗi khi lấy danh sách reels đã chấp nhận'});
     }
 });
 
@@ -272,19 +289,19 @@ router.put('/reelsQT/:id/unarchive', async (req, res) => {
         const reelId = req.params.id;
 
         // Xóa bài viết khỏi danh sách đã chấp nhận
-        await AcceptedReel.findOneAndDelete({ reelId: reelId });
+        await AcceptedReel.findOneAndDelete({reelId: reelId});
 
         // Lấy thông tin bài viết
         const reel = await Reels.findById(reelId);
 
         if (!reel) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy reels' });
+            return res.status(404).json({success: false, message: 'Không tìm thấy reels'});
         }
 
-        res.status(200).json({ success: true, message: 'Reels đã được hủy lưu trữ', reel: reel });
+        res.status(200).json({success: true, message: 'Reels đã được hủy lưu trữ', reel: reel});
     } catch (error) {
         console.error('Lỗi khi hủy lưu trữ bài viết:', error);
-        res.status(500).json({ success: false, error: 'Lỗi khi hủy lưu trữ reels' });
+        res.status(500).json({success: false, error: 'Lỗi khi hủy lưu trữ reels'});
     }
 });
 
@@ -294,11 +311,11 @@ router.delete('/reelsQT/:id', async (req, res) => {
         const reelId = req.params.id;
         const deletedReel = await Reels.findByIdAndDelete(reelId);
         if (!deletedReel) {
-            return res.status(404).json({ error: 'Không tìm thấy reels' });
+            return res.status(404).json({error: 'Không tìm thấy reels'});
         }
-        res.status(200).json({ message: 'Xóa reels thành công' });
+        res.status(200).json({message: 'Xóa reels thành công'});
     } catch (error) {
-        res.status(500).json({ error: 'Lỗi khi xóa reels' });
+        res.status(500).json({error: 'Lỗi khi xóa reels'});
     }
 });
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

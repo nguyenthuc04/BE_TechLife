@@ -199,7 +199,7 @@ router.get('/getPostsByUser/:userId', async (req, res) => {
 
         const posts = await Posts.find({userId});
         if (!posts.length) {
-            return res.status(404).json({success: false, message: 'No posts found for this user'});
+            return res.status(404).json({success: false,posts});
         }
 
         res.status(200).json({success: true, posts});
