@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
     date: { type: String, required: true },
 });
 
-const courseSchema = new mongoose.Schema({
+const CourseSchema = new mongoose.Schema({
     name: { type: String, required: true },
     quantity: { type: String, required: true },
     imageUrl: { type: String, required: true },
@@ -24,6 +24,4 @@ const courseSchema = new mongoose.Schema({
     type: { type: String, required: true },
 });
 
-const Course = mongoose.model('Course', courseSchema);
-
-module.exports = Course;
+module.exports = mongoose.model('Course', CourseSchema);

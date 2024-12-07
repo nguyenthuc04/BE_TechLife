@@ -15,7 +15,7 @@ const Staff = require("../Model/staff");
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const moment = require('moment-timezone');
-const Review = require('../Model/Review');
+const Review = require('../Model/review');
 
 
 router.post('/createReview', async (req, res) => {
@@ -31,7 +31,7 @@ router.post('/createReview', async (req, res) => {
             rating,
             comment,
             userId,
-            date:vietnamTime
+            date: vietnamTime
         });
 
         await newReview.save();
@@ -46,17 +46,17 @@ router.get('/averageRating/:idMentor', async (req, res) => {
     try {
         const idMentor = req.params.idMentor;
 
-        const reviews = await Review.find({ idMentor });
+        const reviews = await Review.find({idMentor});
         if (!reviews || reviews.length === 0) {
-            return res.status(404).json({ success: false, message: 'No reviews found for this mentor' });
+            return res.status(404).json({success: false, message: 'No reviews found for this mentor'});
         }
 
         const totalRating = reviews.reduce((sum, review) => sum + parseFloat(review.rating), 0);
         const averageRating = Math.round(totalRating / reviews.length);
-        res.status(200).json({ success: true, averageRating: averageRating });
+        res.status(200).json({success: true, averageRating: averageRating});
     } catch (error) {
         console.error('Error calculating average rating:', error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
@@ -75,6 +75,126 @@ router.get('/getReview/:idMentor', async (req, res) => {
         res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+const AcceptedReview = require('../Model/AcceptedReview');
+// API chấp nhận bài viết
+router.put('/reviewsQT/:id/accept', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+        // Kiểm tra xem reviewId có hợp lệ không
+        if (!reviewId) {
+            return res.status(400).json({error: 'ID đánh giá không hợp lệ'});
+        }
+
+        const review = await Review.findById(reviewId);
+        if (!review) {
+            return res.status(404).json({error: 'Không tìm thấy đánh giá'});
+        }
+
+        // Kiểm tra xem đánh giá đã được chấp nhận chưa
+        const existingAcceptedReview = await AcceptedReview.findOne({reviewId});
+        if (existingAcceptedCourse) {
+            return res.status(400).json({error: 'Khoá học đã được chấp nhận trước đó'});
+        }
+
+        // Tạo một bản ghi mới trong collection AcceptedReview
+        const acceptedReview = new AcceptedReview({reviewId});
+        await acceptedReview.save();
+
+        // Trả về thông báo thành công cùng với thông tin bản ghi đã tạo
+        res.status(200).json({message: 'Chấp nhận đánh giá thành công', acceptedReview});
+    } catch (error) {
+        console.error('Lỗi khi chấp nhận đánh giá:', error);
+        res.status(500).json({error: 'Lỗi khi chấp nhận đánh giá'});
+    }
+});
+
+
+// Cập nhật API lấy danh sách đánh giá để chỉ trả về các đánh giá chưa được chấp nhận
+router.get('/reviewsQT', async (req, res) => {
+    try {
+        const acceptedReviewIds = await AcceptedReview.find().distinct('reviewId');
+        const reviews = await Review.find({_id: {$nin: acceptedReviewIds}});
+
+        const processedReviews = reviews.map(review => {
+            if (Array.isArray(review.imageUrl) && review.imageUrl.length > 0) {
+                review.imageUrl = review.imageUrl.map(url => url);
+            } else {
+                review.imageUrl = [];
+            }
+            return review;
+        });
+
+        res.status(200).json(processedReviews);
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi lấy danh sách đánh giá'});
+    }
+});
+
+router.get('/reviewsQT/accepted', async (req, res) => {
+    try {
+        const acceptedReviews = await AcceptedReview.find().populate('reviewId');
+
+        // Ghi log để kiểm tra dữ liệu
+        console.log('Danh sách các đánh giá đã chấp nhận:', acceptedReviews);
+
+        const processedReviews = acceptedReviews.map(acceptedReview => {
+            const review = acceptedReview.reviewId;
+
+            if (!review) {
+                console.error(`Không tìm thấy đánh giá cho acceptedReview ID: ${acceptedReview._id}`);
+                return null; // Hoặc xử lý theo cách khác nếu cần
+            }
+
+            return {
+                ...review.toObject(),
+                acceptedAt: acceptedReview.acceptedAt
+            };
+        }).filter(review => review !== null);
+
+        res.status(200).json(processedReviews);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách đánh giá đã chấp nhận:', error);
+        res.status(500).json({error: 'Lỗi khi lấy danh sách đánh giá đã chấp nhận'});
+    }
+});
+
+router.put('/reviewsQT/:id/unarchive', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+
+        // Xóa đánh giá khỏi danh sách đã chấp nhận
+        await AcceptedReview.findOneAndDelete({reviewId: reviewId});
+
+        // Lấy thông tin đánh giá
+        const review = await Review.findById(reviewId);
+
+        if (!review) {
+            return res.status(404).json({success: false, message: 'Không tìm thấy đánh giá'});
+        }
+
+        res.status(200).json({success: true, message: 'Đánh giá đã được hủy lưu trữ', review: review});
+    } catch (error) {
+        console.error('Lỗi khi hủy lưu trữ đánh giá:', error);
+        res.status(500).json({success: false, error: 'Lỗi khi hủy lưu trữ đánh giá'});
+    }
+});
+
+// API xóa đánh giá
+router.delete('/reviewsQT/:id', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+        const deletedReview = await Review.findByIdAndDelete(reviewId);
+        if (!deletedReview) {
+            return res.status(404).json({error: 'Không tìm thấy đánh giá'});
+        }
+        res.status(200).json({message: 'Xóa đánh giá thành công'});
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi xóa đánh giá'});
+    }
+});
+/////////////////////////////////
 
 const transporter = nodemailer.createTransport({
     service: 'Gmail',
@@ -912,18 +1032,16 @@ function getDateRange(filterType, customStartDate, customEndDate) {
     startDate = new Date(startDate.getTime() + 7 * 60 * 60 * 1000);
     endDate = new Date(endDate.getTime() + 7 * 60 * 60 * 1000);
 
-    return { startDate, endDate };
+    return {startDate, endDate};
 }
 
 
-
-
 router.get("/getUserByLastLog", async (req, res) => {
-    const { filterType, startDate, endDate, accountType } = req.query;
+    const {filterType, startDate, endDate, accountType} = req.query;
 
     try {
         // Xác định khoảng thời gian dựa vào filterType
-        const { startDate: start, endDate: end } = getDateRange(filterType, startDate, endDate);
+        const {startDate: start, endDate: end} = getDateRange(filterType, startDate, endDate);
 
         console.log("Start date:", start); // Log ngày bắt đầu
         console.log("End date:", end); // Log ngày kết thúc
@@ -938,7 +1056,7 @@ router.get("/getUserByLastLog", async (req, res) => {
 
         // Truy vấn tất cả người dùng trong khoảng thời gian
         const query = {
-            lastLog: { $gte: start, $lte: end }
+            lastLog: {$gte: start, $lte: end}
         };
 
         // Thêm điều kiện accountType nếu có
@@ -961,15 +1079,10 @@ router.get("/getUserByLastLog", async (req, res) => {
             };
         });
 
-        res.status(200).json({ success: true, data: result });
+        res.status(200).json({success: true, data: result});
     } catch (err) {
-        res.status(400).json({ success: false, message: err.message });
+        res.status(400).json({success: false, message: err.message});
     }
 });
-
-
-
-
-
 
 module.exports = router;
