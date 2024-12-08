@@ -364,7 +364,7 @@ router.post('/updateOrCreateUserPremium', async (req, res) => {
 
         if (userPremium) {
             // Nếu đã tồn tại, cập nhật endDate mới
-            const endDate = moment().tz('Asia/Ho_Chi_Minh').add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+            const endDate = moment(userPremium.endDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
             userPremium.endDate = endDate;
             await userPremium.save();
             return res.status(200).json({
