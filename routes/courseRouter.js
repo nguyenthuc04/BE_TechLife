@@ -475,7 +475,18 @@ router.delete('/coursesQT/:id', async (req, res) => {
         res.status(500).json({error: 'Lỗi khi xóa khoá học'});
     }
 });
-/////////////////////////////////
+
+// Lấy tổng số khóa học
+router.get('/totalCoursesQT', async (req, res) => {
+    try {
+        const totalCourses = await Course.countDocuments();
+        res.status(200).json({ success: true, totalCourses });
+    } catch (error) {
+        console.error('Error getting total number of courses:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 module.exports = router;

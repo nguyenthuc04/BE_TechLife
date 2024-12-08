@@ -93,15 +93,40 @@ router.get('/getNotifications/:yourID', async (req, res) => {
     }
 });
 
+////////////////////////////////////////////////BE////////////////////
+router.get('/getNotificationsBE', async (req, res) => {
+    try {
+        const adminId = "6752b94e699f941650e95a27"; // ID admin
+
+        // Truy vấn thông báo với điều kiện userId
+        const notifications = await Notification.find(
+            { userId: adminId }
+        ).sort({ createdAt: -1 }); // Sắp xếp theo thời gian mới nhất
+
+        // Kiểm tra nếu không có thông báo
+        if (!notifications.length) {
+            return res.status(404).json({ success: false, message: 'No notifications found' });
+        }
+
+        // Trả về thông báo nếu tìm thấy
+        return res.status(200).json({ success: true, notifications });
+    } catch (error) {
+        console.error('Error fetching notifications:', error.message);
+
+        // Trả về lỗi với thông tin chi tiết
+        return res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
 router.post('/createGlobalNotification', async (req, res) => {
     try {
         const { contentId, imgUser, time, type, contentType } = req.body;
 
         // Kiểm tra các trường bắt buộc
-        if (!contentId || !imgUser || !time || !type || !contentType) {
+        if (!contentId ) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: contentId, imgUser, time, type, contentType are mandatory.'
+                message: 'Missing required fields: contentId are mandatory.'
             });
         }
 
@@ -109,14 +134,14 @@ router.post('/createGlobalNotification', async (req, res) => {
         const notification = new Notification({
             contentId,
             userId: "6752b94e699f941650e95a27", // ID mặc định cho thông báo toàn cục
-            imgUser,
+            imgUser: "http://res.cloudinary.com/dy9scmo1m/image/upload/v1733556443/sbhxqezqfibpeacbfjud.jpg",
             nameUser:"TECH LIFE", // Tên mặc định cho thông báo toàn cục
             yourID:"all", // "all" biểu thị thông báo toàn cục
-            time,
+            time: new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString(),
             read: false,
             processed: false,
-            type,
-            contentType,
+            type: "other",
+            contentType: "other",
         });
 
         // Lưu thông báo vào cơ sở dữ liệu

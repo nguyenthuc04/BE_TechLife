@@ -324,11 +324,14 @@ router.get('/postsQT/accepted', async (req, res) => {
         const acceptedPosts = await AcceptedPost.find().populate('postId');
         const processedPosts = acceptedPosts.map(acceptedPost => {
             const post = acceptedPost.postId;
-            return {
-                ...post.toObject(),
-                acceptedAt: acceptedPost.acceptedAt
-            };
-        });
+            if (post) {
+                return {
+                    ...post.toObject(),
+                    acceptedAt: acceptedPost.acceptedAt
+                };
+            }
+            return null;
+        }).filter(post => post !== null);
         res.status(200).json(processedPosts);
     } catch (error) {
         console.error('Lỗi khi lấy danh sách bài viết đã chấp nhận:', error);
@@ -368,6 +371,17 @@ router.delete('/postsQT/:id', async (req, res) => {
         res.status(200).json({message: 'Xóa bài viết thành công'});
     } catch (error) {
         res.status(500).json({error: 'Lỗi khi xóa bài viết'});
+    }
+});
+
+// Lấy tổng số bài viết
+router.get('/totalPostsQT', async (req, res) => {
+    try {
+        const totalPosts = await Posts.countDocuments();
+        res.status(200).json({ success: true, totalPosts });
+    } catch (error) {
+        console.error('Error getting total number of posts:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 /////////////////////////////////

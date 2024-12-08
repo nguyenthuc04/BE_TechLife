@@ -221,32 +221,33 @@ router.get('/getReelsByUser/:userId', async (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const AcceptedReel = require('../Model/AcceptedReel');
-// API chấp nhận bài viết
+
+// API chấp nhận reels
 router.put('/reelsQT/:id/accept', async (req, res) => {
     try {
         const reelId = req.params.id;
         const reel = await Reels.findById(reelId);
         if (!reel) {
-            return res.status(404).json({error: 'Không tìm thấy bài viết'});
+            return res.status(404).json({error: 'Không tìm thấy reels'});
         }
 
-        // Kiểm tra xem bài viết đã được chấp nhận chưa
+        // Kiểm tra xem reels đã được chấp nhận chưa
         const existingAcceptedReel = await AcceptedReel.findOne({reelId});
         if (existingAcceptedReel) {
-            return res.status(400).json({error: 'Bài viết đã được chấp nhận trước đó'});
+            return res.status(400).json({error: 'reels đã được chấp nhận trước đó'});
         }
 
-        // Tạo một bản ghi mới trong collection AcceptedPost
+        // Tạo một bản ghi mới trong collection AcceptedReel
         const acceptedReel = new AcceptedReel({reelId});
         await acceptedReel.save();
 
-        res.status(200).json({message: 'Chấp nhận bài viết thành công', reel});
+        res.status(200).json({message: 'Chấp nhận reels thành công', reel});
     } catch (error) {
-        res.status(500).json({error: 'Lỗi khi chấp nhận bài viết'});
+        res.status(500).json({error: 'Lỗi khi chấp nhận reels'});
     }
 });
 
-// Cập nhật API lấy danh sách bài viết để chỉ trả về các bài viết chưa được chấp nhận
+// Cập nhật API lấy danh sách reels để chỉ trả về các reels chưa được chấp nhận
 router.get('/reelsQT', async (req, res) => {
     try {
         const acceptedReelIds = await AcceptedReel.find().distinct('reelId');
@@ -272,11 +273,14 @@ router.get('/reelsQT/accepted', async (req, res) => {
         const acceptedReels = await AcceptedReel.find().populate('reelId');
         const processedReels = acceptedReels.map(acceptedReels => {
             const reel = acceptedReels.reelId;
-            return {
-                ...reel.toObject(),
-                acceptedAt: acceptedReels.acceptedAt
-            };
-        });
+            if (reel) {
+                return {
+                    ...reel.toObject(),
+                    acceptedAt: acceptedReels.acceptedAt
+                };
+            }
+            return null;
+        }).filter(reel => reel !== null);
         res.status(200).json(processedReels);
     } catch (error) {
         console.error('Lỗi khi lấy danh sách reels đã chấp nhận:', error);
@@ -288,10 +292,10 @@ router.put('/reelsQT/:id/unarchive', async (req, res) => {
     try {
         const reelId = req.params.id;
 
-        // Xóa bài viết khỏi danh sách đã chấp nhận
+        // Xóa reels khỏi danh sách đã chấp nhận
         await AcceptedReel.findOneAndDelete({reelId: reelId});
 
-        // Lấy thông tin bài viết
+        // Lấy thông tin reels
         const reel = await Reels.findById(reelId);
 
         if (!reel) {
@@ -305,7 +309,7 @@ router.put('/reelsQT/:id/unarchive', async (req, res) => {
     }
 });
 
-// API xóa bài viết
+// API xóa reels
 router.delete('/reelsQT/:id', async (req, res) => {
     try {
         const reelId = req.params.id;
@@ -316,6 +320,17 @@ router.delete('/reelsQT/:id', async (req, res) => {
         res.status(200).json({message: 'Xóa reels thành công'});
     } catch (error) {
         res.status(500).json({error: 'Lỗi khi xóa reels'});
+    }
+});
+
+// Lấy tổng số reels
+router.get('/totalReelsQT', async (req, res) => {
+    try {
+        const totalReels = await Reels.countDocuments();
+        res.status(200).json({ success: true, totalReels });
+    } catch (error) {
+        console.error('Error getting total number of reels:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
     }
 });
 /////////////////////////////////////////////////////////////////////////////////////////////////////////

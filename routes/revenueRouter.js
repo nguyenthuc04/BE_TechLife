@@ -1,5 +1,6 @@
 const express = require('express');
 const Revenue = require('../Model/revenue');
+const Users = require('../Model/user');
 const router = express.Router();
 
 router.post('/createRevenue', async (req, res) => {
@@ -193,8 +194,28 @@ router.get("/getRevenueByDateAndType", async (req, res) => {
     }
 });
 
+//tổng doanh thu
+router.get('/mentor-statistics', async (req, res) => {
+    try {
+        const mentors = await Users.find({ accountType: 'mentor' });
 
+        const totalMentors = mentors.length;
+        const upgradePrice = 500000; // Giá nâng cấp lên tài khoản mentor
+        const totalRevenue = totalMentors * upgradePrice;
 
-
+        res.json({
+            totalMentors,
+            upgradePrice,
+            totalRevenue,
+            mentors: mentors.map(mentor => ({
+                id: mentor._id,
+                name: mentor.name,
+                nickname: mentor.nickname
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 module.exports = router;
