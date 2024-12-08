@@ -45,11 +45,6 @@ router.put('/updateAccountType/:userId', async (req, res) => {
             user.accountType = 'mentee';
             await user.save();
             return res.status(200).json({ success: true, message: 'Account type updated to mentee due to expired premium' });
-        } else {
-            // Update the accountType to 'mentor' if the premium is still valid
-            user.accountType = 'mentor';
-            await user.save();
-            return res.status(200).json({ success: true, message: 'Account type updated to mentor as premium is still active' });
         }
     } catch (error) {
         console.error('Error updating account type:', error);
@@ -325,79 +320,6 @@ router.post('/createPremium', async (req, res) => {
     }
 });
 
-router.post('/createUserPremium', async (req, res) => {
-    const { userId, userName } = req.body;
-
-    try {
-        const startDate = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
-        const endDate = moment(startDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
-
-        const newUserPremium = new UserPremium({
-            userId,
-            userName,
-            startDate,
-            endDate,
-        });
-
-        const result = await newUserPremium.save();
-
-        return res.status(201).json({
-            success: true,
-            message: 'Thông tin UserPremium đã được tạo thành công',
-            data: result,
-        });
-    } catch (error) {
-        console.error('Lỗi khi tạo UserPremium:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Đã xảy ra lỗi khi tạo UserPremium',
-        });
-    }
-});
-
-router.post('/updateOrCreateUserPremium', async (req, res) => {
-    const { userId, userName } = req.body;
-
-    try {
-        // Kiểm tra xem userId đã tồn tại trong bảng UserPremium chưa
-        let userPremium = await UserPremium.findOne({ userId });
-
-        if (userPremium) {
-            // Nếu đã tồn tại, cập nhật endDate mới
-            const endDate = moment().tz('Asia/Ho_Chi_Minh').add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
-            userPremium.endDate = endDate;
-            await userPremium.save();
-            return res.status(200).json({
-                success: true,
-                message: 'UserPremium đã được cập nhật.',
-                data: userPremium
-            });
-        } else {
-            // Nếu không tồn tại, tạo mới
-            const startDate = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
-            const endDate = moment(startDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
-            userPremium = new UserPremium({
-                userId,
-                userName,
-                startDate,
-                endDate
-            });
-            await userPremium.save();
-            return res.status(201).json({
-                success: true,
-                message: 'UserPremium đã được tạo mới.',
-                data: userPremium
-            });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            success: false,
-            message: 'Đã xảy ra lỗi khi xử lý UserPremium.',
-            error: error.message
-        });
-    }
-});
 
 router.get('/getUserPremium/:userId', async (req, res) => {
     const { userId } = req.params;
@@ -431,16 +353,16 @@ router.post('/approveMentor/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Tìm thông tin đăng ký trong bảng Premium
+        // Tìm thông tin yêu cầu Premium
         const premiumRequest = await Premium.findById(id);
         if (!premiumRequest) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy yêu cầu đăng ký mentor'
+                message: 'Không tìm thấy yêu cầu mentor'
             });
         }
 
-        // Tìm user liên quan
+        // Tìm thông tin user liên quan
         const user = await Users.findById(premiumRequest.userId);
         if (!user) {
             return res.status(404).json({
@@ -449,76 +371,78 @@ router.post('/approveMentor/:id', async (req, res) => {
             });
         }
 
-        // Nếu người dùng đã là mentor
+        // Kiểm tra và xử lý logic chuyển đổi trạng thái tài khoản
         if (user.accountType === 'mentor') {
-            // Kiểm tra trong bảng UserPremium
-            const userPremium = await UserPremium.findOne({ userId: user._id });
-
-            if (userPremium) {
-                // Cập nhật endDate thêm 30 ngày
-                const newEndDate = new Date(userPremium.endDate);
-                newEndDate.setDate(newEndDate.getDate() + 30);
-
-                userPremium.endDate = newEndDate;
-                await userPremium.save();
-
-                return res.status(200).json({
-                    success: true,
-                    message: 'Thời gian premium của mentor đã được gia hạn thêm 30 ngày',
-                    data: userPremium
-                });
-            } else {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy thông tin UserPremium cho người dùng này'
-                });
-            }
-        }
-
-        // Nếu người dùng là mentee, chuyển đổi thành mentor
-        if (user.accountType !== 'mentee') {
+            return res.status(200).json({
+                success: true,
+                message: 'Người dùng đã là mentor.'
+            });
+        } else if (user.accountType !== 'mentee') {
             return res.status(400).json({
                 success: false,
-                message: 'Người dùng không phải mentee, không thể chuyển đổi thành mentor'
+                message: 'Người dùng không thể chuyển thành mentor.'
             });
         }
 
+        // Cập nhật tài khoản người dùng thành mentor
         user.accountType = 'mentor';
         await user.save();
 
-        // Tạo bản ghi mới trong bảng UserPremium
-        const startDate = new Date();
-        const endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 30);
-
-        const newUserPremium = new UserPremium({
-            userId: user._id,
-            userName: user.name,
-            startDate,
-            endDate
-        });
-        await newUserPremium.save();
-
-        // Xóa yêu cầu trong bảng Premium
+        // Xóa yêu cầu Premium
         await Premium.findByIdAndDelete(id);
 
         return res.status(200).json({
             success: true,
-            message: 'Người dùng đã được chuyển đổi thành mentor và thêm vào UserPremium',
-            data: {
-                user,
-                premiumRequest: premiumRequest,
-                userPremium: newUserPremium
-            }
+            message: 'Người dùng đã được chuyển thành mentor và yêu cầu đã xóa.',
+            data: { user }
         });
     } catch (error) {
         console.error('Lỗi khi duyệt mentor:', error);
         return res.status(500).json({
             success: false,
-            message: 'Đã xảy ra lỗi trong quá trình duyệt mentor'
+            message: 'Lỗi xảy ra khi duyệt mentor'
         });
     }
 });
+router.post('/updateUserPremium', async (req, res) => {
+    const { userId, userName } = req.body;
+
+    if (!userId || !userName) {
+        return res.status(400).json({
+            success: false,
+            message: 'userId và userName là bắt buộc',
+        });
+    }
+
+    try {
+        let userPremium = await UserPremium.findOne({ userId });
+
+        if (userPremium) {
+            userPremium.endDate = moment(userPremium.endDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+            await userPremium.save();
+        } else {
+            const startDate = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+            const endDate = moment(startDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+
+            userPremium = new UserPremium({ userId, userName, startDate, endDate });
+            await userPremium.save();
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Thông tin UserPremium đã được cập nhật hoặc tạo mới.',
+            data: userPremium,
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật UserPremium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi xảy ra khi cập nhật UserPremium',
+        });
+    }
+});
+
+
 
 
 router.get('/getPremiumRequests', async (req, res) => {
@@ -536,6 +460,31 @@ router.get('/getPremiumRequests', async (req, res) => {
         });
     }
 });
+router.get('/getPremiumRequest/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const premiumRequest = await Premium.findById(id);
+
+        if (!premiumRequest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy yêu cầu',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: premiumRequest,
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy yêu cầu Premium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi xảy ra khi lấy yêu cầu Premium.',
+        });
+    }
+});
+
 
 
 // Xóa yêu cầu Premium
