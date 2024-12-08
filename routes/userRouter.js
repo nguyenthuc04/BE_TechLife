@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Users = require('../Model/user');
+const UserPremium = require('../Model/userPremium');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
@@ -15,8 +16,41 @@ const Staff = require("../Model/staff");
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const moment = require('moment-timezone');
-const Review = require('../Model/Review');
+const Review = require('../Model/review');
 
+
+router.put('/updateAccountType/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Find the user by userId
+        const user = await Users.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Find the user's premium information
+        const userPremium = await UserPremium.findOne({ userId });
+        if (!userPremium) {
+            return res.status(404).json({ success: false, message: 'UserPremium not found' });
+        }
+
+        // Check if the endDate has expired
+        const currentDate = moment();
+        const endDate = moment(userPremium.endDate);
+        console.log('currentDate:', currentDate.format());
+        console.log('userPremium.endDate:', endDate.format());
+        if (endDate.isBefore(currentDate)) {
+            // Update the accountType to 'mentee' if the premium has expired
+            user.accountType = 'mentee';
+            await user.save();
+            return res.status(200).json({ success: true, message: 'Account type updated to mentee due to expired premium' });
+        }
+    } catch (error) {
+        console.error('Error updating account type:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
 
 router.post('/createReview', async (req, res) => {
     try {
@@ -31,7 +65,7 @@ router.post('/createReview', async (req, res) => {
             rating,
             comment,
             userId,
-            date:vietnamTime
+            date: vietnamTime
         });
 
         await newReview.save();
@@ -46,17 +80,17 @@ router.get('/averageRating/:idMentor', async (req, res) => {
     try {
         const idMentor = req.params.idMentor;
 
-        const reviews = await Review.find({ idMentor });
+        const reviews = await Review.find({idMentor});
         if (!reviews || reviews.length === 0) {
-            return res.status(404).json({ success: false, message: 'No reviews found for this mentor' });
+            return res.status(404).json({success: false, message: 'No reviews found for this mentor'});
         }
 
         const totalRating = reviews.reduce((sum, review) => sum + parseFloat(review.rating), 0);
         const averageRating = Math.round(totalRating / reviews.length);
-        res.status(200).json({ success: true, averageRating: averageRating });
+        res.status(200).json({success: true, averageRating: averageRating});
     } catch (error) {
         console.error('Error calculating average rating:', error);
-        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+        res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
 
@@ -75,6 +109,126 @@ router.get('/getReview/:idMentor', async (req, res) => {
         res.status(500).json({success: false, message: 'An unexpected error has occurred, try again!'});
     }
 });
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+const AcceptedReview = require('../Model/AcceptedReview');
+// API chấp nhận đánh giá
+router.put('/reviewsQT/:id/accept', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+        // Kiểm tra xem reviewId có hợp lệ không
+        if (!reviewId) {
+            return res.status(400).json({error: 'ID đánh giá không hợp lệ'});
+        }
+
+        const review = await Review.findById(reviewId);
+        if (!review) {
+            return res.status(404).json({error: 'Không tìm thấy đánh giá'});
+        }
+
+        // Kiểm tra xem đánh giá đã được chấp nhận chưa
+        const existingAcceptedReview = await AcceptedReview.findOne({reviewId});
+        if (existingAcceptedReview) {
+            return res.status(400).json({error: 'Khoá học đã được chấp nhận trước đó'});
+        }
+
+        // Tạo một bản ghi mới trong collection AcceptedReview
+        const acceptedReview = new AcceptedReview({reviewId});
+        await acceptedReview.save();
+
+        // Trả về thông báo thành công cùng với thông tin bản ghi đã tạo
+        res.status(200).json({message: 'Chấp nhận đánh giá thành công', acceptedReview});
+    } catch (error) {
+        console.error('Lỗi khi chấp nhận đánh giá:', error);
+        res.status(500).json({error: 'Lỗi khi chấp nhận đánh giá'});
+    }
+});
+
+
+// Cập nhật API lấy danh sách đánh giá để chỉ trả về các đánh giá chưa được chấp nhận
+router.get('/reviewsQT', async (req, res) => {
+    try {
+        const acceptedReviewIds = await AcceptedReview.find().distinct('reviewId');
+        const reviews = await Review.find({_id: {$nin: acceptedReviewIds}});
+
+        const processedReviews = reviews.map(review => {
+            if (Array.isArray(review.imageUrl) && review.imageUrl.length > 0) {
+                review.imageUrl = review.imageUrl.map(url => url);
+            } else {
+                review.imageUrl = [];
+            }
+            return review;
+        });
+
+        res.status(200).json(processedReviews);
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi lấy danh sách đánh giá'});
+    }
+});
+
+router.get('/reviewsQT/accepted', async (req, res) => {
+    try {
+        const acceptedReviews = await AcceptedReview.find().populate('reviewId');
+
+        // Ghi log để kiểm tra dữ liệu
+        console.log('Danh sách các đánh giá đã chấp nhận:', acceptedReviews);
+
+        const processedReviews = acceptedReviews.map(acceptedReview => {
+            const review = acceptedReview.reviewId;
+
+            if (!review) {
+                console.error(`Không tìm thấy đánh giá cho acceptedReview ID: ${acceptedReview._id}`);
+                return null; // Hoặc xử lý theo cách khác nếu cần
+            }
+
+            return {
+                ...review.toObject(),
+                acceptedAt: acceptedReview.acceptedAt
+            };
+        }).filter(review => review !== null);
+
+        res.status(200).json(processedReviews);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách đánh giá đã chấp nhận:', error);
+        res.status(500).json({error: 'Lỗi khi lấy danh sách đánh giá đã chấp nhận'});
+    }
+});
+
+router.put('/reviewsQT/:id/unarchive', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+
+        // Xóa đánh giá khỏi danh sách đã chấp nhận
+        await AcceptedReview.findOneAndDelete({reviewId: reviewId});
+
+        // Lấy thông tin đánh giá
+        const review = await Review.findById(reviewId);
+
+        if (!review) {
+            return res.status(404).json({success: false, message: 'Không tìm thấy đánh giá'});
+        }
+
+        res.status(200).json({success: true, message: 'Đánh giá đã được hủy lưu trữ', review: review});
+    } catch (error) {
+        console.error('Lỗi khi hủy lưu trữ đánh giá:', error);
+        res.status(500).json({success: false, error: 'Lỗi khi hủy lưu trữ đánh giá'});
+    }
+});
+
+// API xóa đánh giá
+router.delete('/reviewsQT/:id', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+        const deletedReview = await Review.findByIdAndDelete(reviewId);
+        if (!deletedReview) {
+            return res.status(404).json({error: 'Không tìm thấy đánh giá'});
+        }
+        res.status(200).json({message: 'Xóa đánh giá thành công'});
+    } catch (error) {
+        res.status(500).json({error: 'Lỗi khi xóa đánh giá'});
+    }
+});
+/////////////////////////////////
 
 const transporter = nodemailer.createTransport({
     service: 'Gmail',
@@ -166,20 +320,49 @@ router.post('/createPremium', async (req, res) => {
     }
 });
 
-router.post('/approveMentor/:id', async (req, res) => {
-    const {id} = req.params;
+
+router.get('/getUserPremium/:userId', async (req, res) => {
+    const { userId } = req.params;
 
     try {
-        // Tìm thông tin đăng ký trong bảng Premium
+        // Tìm thông tin UserPremium theo userId
+        const userPremium = await UserPremium.findOne({ userId });
+
+        if (userPremium) {
+            return res.status(200).json({
+                success: true,
+                message: 'UserPremium được tìm thấy',
+                data: userPremium,
+            });
+        } else {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy thông tin UserPremium',
+            });
+        }
+    } catch (error) {
+        console.error('Lỗi khi gọi GET /getUserPremium/:userId', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi trong quá trình tìm UserPremium',
+        });
+    }
+});
+
+router.post('/approveMentor/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Tìm thông tin yêu cầu Premium
         const premiumRequest = await Premium.findById(id);
         if (!premiumRequest) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy yêu cầu đăng ký mentor'
+                message: 'Không tìm thấy yêu cầu mentor'
             });
         }
 
-        // Cập nhật accountType của user
+        // Tìm thông tin user liên quan
         const user = await Users.findById(premiumRequest.userId);
         if (!user) {
             return res.status(404).json({
@@ -188,44 +371,80 @@ router.post('/approveMentor/:id', async (req, res) => {
             });
         }
 
-        // Kiểm tra xem người dùng đã là mentor chưa
+        // Kiểm tra và xử lý logic chuyển đổi trạng thái tài khoản
         if (user.accountType === 'mentor') {
+            return res.status(200).json({
+                success: true,
+                message: 'Người dùng đã là mentor.'
+            });
+        } else if (user.accountType !== 'mentee') {
             return res.status(400).json({
                 success: false,
-                message: 'Người dùng đã là mentor rồi, không cần chuyển đổi'
+                message: 'Người dùng không thể chuyển thành mentor.'
             });
         }
 
-        if (user.accountType !== 'mentee') {
-            return res.status(400).json({
-                success: false,
-                message: 'Người dùng không phải mentee, không thể chuyển đổi thành mentor'
-            });
-        }
-
-        // Chuyển đổi tài khoản thành mentor
+        // Cập nhật tài khoản người dùng thành mentor
         user.accountType = 'mentor';
         await user.save();
 
-        // Xóa yêu cầu trong bảng Premium
+        // Xóa yêu cầu Premium
         await Premium.findByIdAndDelete(id);
 
         return res.status(200).json({
             success: true,
-            message: 'Người dùng đã được chuyển đổi thành mentor thành công',
-            data: {
-                user: user,
-                premiumRequest: premiumRequest
-            },
+            message: 'Người dùng đã được chuyển thành mentor và yêu cầu đã xóa.',
+            data: { user }
         });
     } catch (error) {
         console.error('Lỗi khi duyệt mentor:', error);
         return res.status(500).json({
             success: false,
-            message: 'Đã xảy ra lỗi trong quá trình duyệt mentor'
+            message: 'Lỗi xảy ra khi duyệt mentor'
         });
     }
 });
+router.post('/updateUserPremium', async (req, res) => {
+    const { userId, userName } = req.body;
+
+    if (!userId || !userName) {
+        return res.status(400).json({
+            success: false,
+            message: 'userId và userName là bắt buộc',
+        });
+    }
+
+    try {
+        let userPremium = await UserPremium.findOne({ userId });
+
+        if (userPremium) {
+            userPremium.endDate = moment(userPremium.endDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+            await userPremium.save();
+        } else {
+            const startDate = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+            const endDate = moment(startDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+
+            userPremium = new UserPremium({ userId, userName, startDate, endDate });
+            await userPremium.save();
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Thông tin UserPremium đã được cập nhật hoặc tạo mới.',
+            data: userPremium,
+        });
+    } catch (error) {
+        console.error('Lỗi khi cập nhật UserPremium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi xảy ra khi cập nhật UserPremium',
+        });
+    }
+});
+
+
+
+
 router.get('/getPremiumRequests', async (req, res) => {
     try {
         const premiumRequests = await Premium.find();
@@ -241,6 +460,31 @@ router.get('/getPremiumRequests', async (req, res) => {
         });
     }
 });
+router.get('/getPremiumRequest/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const premiumRequest = await Premium.findById(id);
+
+        if (!premiumRequest) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy yêu cầu',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: premiumRequest,
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy yêu cầu Premium:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Lỗi xảy ra khi lấy yêu cầu Premium.',
+        });
+    }
+});
+
 
 
 // Xóa yêu cầu Premium
@@ -912,18 +1156,16 @@ function getDateRange(filterType, customStartDate, customEndDate) {
     startDate = new Date(startDate.getTime() + 7 * 60 * 60 * 1000);
     endDate = new Date(endDate.getTime() + 7 * 60 * 60 * 1000);
 
-    return { startDate, endDate };
+    return {startDate, endDate};
 }
 
 
-
-
 router.get("/getUserByLastLog", async (req, res) => {
-    const { filterType, startDate, endDate, accountType } = req.query;
+    const {filterType, startDate, endDate, accountType} = req.query;
 
     try {
         // Xác định khoảng thời gian dựa vào filterType
-        const { startDate: start, endDate: end } = getDateRange(filterType, startDate, endDate);
+        const {startDate: start, endDate: end} = getDateRange(filterType, startDate, endDate);
 
         console.log("Start date:", start); // Log ngày bắt đầu
         console.log("End date:", end); // Log ngày kết thúc
@@ -938,7 +1180,7 @@ router.get("/getUserByLastLog", async (req, res) => {
 
         // Truy vấn tất cả người dùng trong khoảng thời gian
         const query = {
-            lastLog: { $gte: start, $lte: end }
+            lastLog: {$gte: start, $lte: end}
         };
 
         // Thêm điều kiện accountType nếu có
@@ -961,15 +1203,10 @@ router.get("/getUserByLastLog", async (req, res) => {
             };
         });
 
-        res.status(200).json({ success: true, data: result });
+        res.status(200).json({success: true, data: result});
     } catch (err) {
-        res.status(400).json({ success: false, message: err.message });
+        res.status(400).json({success: false, message: err.message});
     }
 });
-
-
-
-
-
 
 module.exports = router;

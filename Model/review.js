@@ -8,4 +8,4 @@ const reviewSchema = new mongoose.Schema({
     date: { type: String, required: true }
 });
 
-module.exports = mongoose.model('Review', reviewSchema);
+module.exports = mongoose.model('review', reviewSchema);
