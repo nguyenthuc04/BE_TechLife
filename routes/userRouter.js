@@ -19,6 +19,44 @@ const moment = require('moment-timezone');
 const Review = require('../Model/review');
 
 
+router.put('/updateAccountType/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Find the user by userId
+        const user = await Users.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Find the user's premium information
+        const userPremium = await UserPremium.findOne({ userId });
+        if (!userPremium) {
+            return res.status(404).json({ success: false, message: 'UserPremium not found' });
+        }
+
+        // Check if the endDate has expired
+        const currentDate = moment();
+        const endDate = moment(userPremium.endDate);
+        console.log('currentDate:', currentDate.format());
+        console.log('userPremium.endDate:', endDate.format());
+        if (endDate.isBefore(currentDate)) {
+            // Update the accountType to 'mentee' if the premium has expired
+            user.accountType = 'mentee';
+            await user.save();
+            return res.status(200).json({ success: true, message: 'Account type updated to mentee due to expired premium' });
+        } else {
+            // Update the accountType to 'mentor' if the premium is still valid
+            user.accountType = 'mentor';
+            await user.save();
+            return res.status(200).json({ success: true, message: 'Account type updated to mentor as premium is still active' });
+        }
+    } catch (error) {
+        console.error('Error updating account type:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
 router.post('/createReview', async (req, res) => {
     try {
         const {idMentor, rating, comment, userId} = req.body;
@@ -288,9 +326,12 @@ router.post('/createPremium', async (req, res) => {
 });
 
 router.post('/createUserPremium', async (req, res) => {
-    const { userId, userName, startDate, endDate } = req.body;
+    const { userId, userName } = req.body;
 
     try {
+        const startDate = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+        const endDate = moment(startDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+
         const newUserPremium = new UserPremium({
             userId,
             userName,
@@ -315,7 +356,7 @@ router.post('/createUserPremium', async (req, res) => {
 });
 
 router.post('/updateOrCreateUserPremium', async (req, res) => {
-    const { userId, userName, startDate, endDate } = req.body;
+    const { userId, userName } = req.body;
 
     try {
         // Kiểm tra xem userId đã tồn tại trong bảng UserPremium chưa
@@ -323,6 +364,7 @@ router.post('/updateOrCreateUserPremium', async (req, res) => {
 
         if (userPremium) {
             // Nếu đã tồn tại, cập nhật endDate mới
+            const endDate = moment().tz('Asia/Ho_Chi_Minh').add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
             userPremium.endDate = endDate;
             await userPremium.save();
             return res.status(200).json({
@@ -332,6 +374,8 @@ router.post('/updateOrCreateUserPremium', async (req, res) => {
             });
         } else {
             // Nếu không tồn tại, tạo mới
+            const startDate = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
+            const endDate = moment(startDate).add(30, 'days').format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
             userPremium = new UserPremium({
                 userId,
                 userName,
