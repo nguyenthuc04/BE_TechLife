@@ -6,9 +6,9 @@ const Course = require('../Model/course');
 
 router.post('/createCourse', async (req, res) => {
     try {
-        const { name, quantity, imageUrl, price, duration, describe, userId, userName, userImageUrl,startDate,endDate,type } = req.body;
+        const { name, quantity, imageUrl, price, duration, describe, userId, userName, userImageUrl,startDate,endDate,type, phoneNumber } = req.body;
 
-        if (!name || !quantity || !imageUrl || !price || !duration || !describe || !userId || !userName || !userImageUrl || !startDate || !endDate || !type) {
+        if (!name || !quantity || !imageUrl || !price || !duration || !describe || !userId || !userName || !userImageUrl || !startDate || !endDate || !type || !phoneNumber) {
             return res.status(400).json({ success: false, message: 'All fields are required' });
         }
 
@@ -25,7 +25,8 @@ router.post('/createCourse', async (req, res) => {
             userImageUrl,
             startDate,
             endDate,
-            type
+            type,
+            phoneNumber
         });
 
         await newCourse.save();

@@ -952,7 +952,7 @@ router.post('/createUserQT', async (req, res) => {
         posts
     } = req.body;
 
-    if (!account || !password || !birthday || !name || !nickname || !bio || !avatar || !accountType || !following || !followers || !posts) {
+    if (!account || !password || !birthday || !name || !nickname || !avatar || !accountType || !following || !followers || !posts) {
         return res.status(400).json({message: 'Vui lòng cung cấp đầy đủ thông tin nhân viên!'});
     }
 
