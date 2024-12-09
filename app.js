@@ -10,7 +10,6 @@ var usersRouter = require('./routes/userRouter');
 var courseRouter = require('./routes/courseRouter');
 var postRouter = require('./routes/postRouter');
 var reelRouter = require('./routes/reelRouter');
-var staffRouter = require('./routes/staffRouter');
 var revenueRouter = require('./routes/revenueRouter');
 var notificationRoute = require('./routes/notificationRouter');
 var analyticsRouter = require('./routes/analyticsRouter');
@@ -45,7 +44,6 @@ app.use('/', usersRouter);
 app.use('/', courseRouter);
 app.use('/', postRouter);
 app.use('/', reelRouter)
-app.use('/', staffRouter)
 app.use('/', notificationRoute);
 app.use('/', revenueRouter)
 app.use('/', analyticsRouter);
