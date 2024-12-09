@@ -1013,12 +1013,16 @@ router.put('/updateUserQT/:id', async (req, res) => {
 });
 
 // Xóa người dùng
-router.delete('deleteUserQT/:id', async (req, res) => {
+router.delete('/deleteUserQT/:id', async (req, res) => {
     try {
-        await Users.findByIdAndDelete(req.params.id);
-        res.json({message: 'User deleted'});
-    } catch (err) {
-        res.status(500).json({message: err.message});
+        const userId = req.params.id;
+        const deletedUser = await Users.findByIdAndDelete(userId);
+        if (!deletedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.status(200).json({ message: 'User deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete user' });
     }
 });
 

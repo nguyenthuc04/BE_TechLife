@@ -204,10 +204,12 @@ router.get('/getCoursesByName/:name', async (req, res) => {
         const courses = await Course.find({ name: { $regex: name, $options: 'i' } });
 
         if (!courses.length) {
-            return res.status(404).json({ success: false, message: 'No courses found with this name' });
+            res.status(404).json({ success: false, message: 'No courses found with this name' });
+        } else {
+            res.status(200).json({ success: true,message : "HEhe",data : courses });
+
         }
 
-        res.status(200).json({ success: true,message : "HEhe",data : courses });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
