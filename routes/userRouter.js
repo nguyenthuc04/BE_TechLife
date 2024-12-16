@@ -12,7 +12,6 @@ const STREAM_API_KEY = process.env.STREAM_API_KEY;
 const STREAM_API_SECRET = process.env.STREAM_API_SECRET;
 dotenv.config();
 const mongoose = require('mongoose');
-const Staff = require("../Model/staff");
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const moment = require('moment-timezone');

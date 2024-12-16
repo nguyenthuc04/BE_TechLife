@@ -4,6 +4,28 @@ const mongoose = require('mongoose');
 const Course = require('../Model/course');
 
 
+router.get('/getCoursesByUserRegistration/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ success: false, message: 'Invalid userId' });
+        }
+
+        // Find all courses where the user is registered
+        const courses = await Course.find({ 'user.id': userId });
+
+        if (!courses.length) {
+            return res.status(404).json({ success: false, message: 'No courses found for this user' });
+        }
+
+        res.status(200).json({ success: true, courses });
+    } catch (error) {
+        console.error('Error retrieving courses by user registration:', error);
+        res.status(500).json({ success: false, message: 'An unexpected error has occurred, try again!' });
+    }
+});
+
 router.post('/createCourse', async (req, res) => {
     try {
         const { name, quantity, imageUrl, price, duration, describe, userId, userName, userImageUrl,startDate,endDate,type, phoneNumber } = req.body;
